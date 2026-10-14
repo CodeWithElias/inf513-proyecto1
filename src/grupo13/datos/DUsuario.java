@@ -23,14 +23,15 @@ public class DUsuario {
     /** filtro null = todos. */
     public List<String[]> listar(String filtro) throws SQLException {
         String sql = SELECT
-                + (filtro == null ? "" : " WHERE u.nombre_completo ILIKE ? OR u.email ILIKE ? OR r.nombre ILIKE ?")
+                + (filtro == null ? "" : " WHERE u.nombre_completo ILIKE ? OR u.email ILIKE ? OR r.nombre ILIKE ?"
+                        + " OR uu.nombre ILIKE ?")
                 + " ORDER BY u.id_usuario";
         try (Connection c = Conexion.abrir(); PreparedStatement ps = c.prepareStatement(sql)) {
             if (filtro != null) {
                 String like = "%" + filtro + "%";
-                ps.setString(1, like);
-                ps.setString(2, like);
-                ps.setString(3, like);
+                for (int i = 1; i <= 4; i++) {
+                    ps.setString(i, like);
+                }
             }
             try (ResultSet rs = ps.executeQuery()) {
                 return Conexion.leerFilas(rs);

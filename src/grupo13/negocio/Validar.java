@@ -51,6 +51,14 @@ public final class Validar {
         return valor;
     }
 
+    /** Cédula de identidad: números y opcionalmente complemento/extensión (ej. 4715292, 4715292-1B, 4715292 SC). */
+    public static String ci(String valor) throws ComandoException {
+        if (!valor.matches("[0-9]{4,12}([ \\-][0-9A-Za-z]{1,4})?")) {
+            throw new ComandoException("El CI '" + Html.esc(valor) + "' no es válido (ej. 4715292 o 4715292-1B).");
+        }
+        return valor.toUpperCase();
+    }
+
     public static String password(String valor) throws ComandoException {
         if (valor.length() < 6 || valor.length() > 100) {
             throw new ComandoException("La contraseña debe tener entre 6 y 100 caracteres.");
