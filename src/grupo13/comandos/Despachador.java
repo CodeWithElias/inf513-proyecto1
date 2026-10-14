@@ -1,5 +1,7 @@
 package grupo13.comandos;
 
+import grupo13.negocio.NEmpresa;
+import grupo13.negocio.NRepresentante;
 import grupo13.negocio.NRol;
 import grupo13.negocio.NUnidad;
 import grupo13.negocio.NUsuario;
@@ -43,12 +45,14 @@ public class Despachador {
         NUsuario usuario = new NUsuario();
         NRol rol = new NRol();
         NUnidad unidad = new NUnidad();
+        NRepresentante cliente = new NRepresentante();
+        NEmpresa empresa = new NEmpresa();
 
         grupo("Ayuda");
         registrar("help", "Lista todos los comandos existentes", new String[]{}, "help", p -> ayuda());
 
-        grupo("CU: Gestionar Usuarios");
-        registrar("lisUsu", "Lista los usuarios (\"*\" = todos, o un texto para buscar por nombre/email/rol)",
+        grupo("CU1: Gestión de Usuarios");
+        registrar("lisUsu", "Lista los usuarios (\"*\" = todos, o un texto para buscar por nombre/email/rol/unidad)",
                 new String[]{"filtro"}, "lisUsu[\"*\"]", usuario::listar);
         registrar("mosUsu", "Muestra un usuario por su ID",
                 new String[]{"id_usuario"}, "mosUsu[\"1\"]", usuario::mostrar);
@@ -65,13 +69,52 @@ public class Despachador {
         registrar("actUsu", "Reactiva un usuario dado de baja",
                 new String[]{"id_usuario"}, "actUsu[\"1\"]", usuario::activar);
 
-        grupo("Datos de apoyo para usuarios");
+        grupo("CU1: Roles (Director, Encargado de Unidad, Cliente…)");
         registrar("lisRol", "Lista los roles (\"*\" = todos)",
                 new String[]{"filtro"}, "lisRol[\"*\"]", rol::listar);
+        registrar("mosRol", "Muestra un rol por su ID",
+                new String[]{"id_rol"}, "mosRol[\"1\"]", rol::mostrar);
         registrar("insRol", "Registra un rol",
-                new String[]{"nombre", "descripcion"}, "insRol[\"Administrador\",\"Acceso total al sistema\"]", rol::insertar);
+                new String[]{"nombre", "descripcion"}, "insRol[\"Director\",\"Director de Canal 11\"]", rol::insertar);
+        registrar("modRol", "Modifica un rol",
+                new String[]{"id_rol", "nombre", "descripcion"}, "modRol[\"2\",\"Director\",\"Dirección general de Canal 11\"]",
+                rol::modificar);
+        registrar("eliRol", "Da de baja un rol (solo si no tiene usuarios activos)",
+                new String[]{"id_rol"}, "eliRol[\"2\"]", rol::eliminar);
+        registrar("actRol", "Reactiva un rol dado de baja",
+                new String[]{"id_rol"}, "actRol[\"2\"]", rol::activar);
+
+        grupo("CU1: Unidades Universitarias (para Encargados de Unidad)");
         registrar("lisUni", "Lista las unidades universitarias (\"*\" = todas)",
                 new String[]{"filtro"}, "lisUni[\"*\"]", unidad::listar);
+        registrar("mosUni", "Muestra una unidad y sus subunidades",
+                new String[]{"id_unidad"}, "mosUni[\"1\"]", unidad::mostrar);
+        registrar("insUni", "Registra una unidad (tipo e id_unidad_padre pueden ir vacíos \"\")",
+                new String[]{"nombre", "tipo", "id_unidad_padre"},
+                "insUni[\"Facultad de Ciencias de la Computación\",\"Facultad\",\"\"]", unidad::insertar);
+        registrar("modUni", "Modifica una unidad",
+                new String[]{"id_unidad", "nombre", "tipo", "id_unidad_padre"},
+                "modUni[\"2\",\"Ingeniería Informática\",\"Carrera\",\"1\"]", unidad::modificar);
+        registrar("eliUni", "Da de baja una unidad (sin usuarios ni subunidades activas)",
+                new String[]{"id_unidad"}, "eliUni[\"2\"]", unidad::eliminar);
+        registrar("actUni", "Reactiva una unidad dada de baja",
+                new String[]{"id_unidad"}, "actUni[\"2\"]", unidad::activar);
+
+        grupo("CU1: Clientes (representantes de empresas anunciantes)");
+        registrar("lisRep", "Lista los clientes (busca por nombre, email, CI, empresa o NIT)",
+                new String[]{"filtro"}, "lisRep[\"*\"]", cliente::listar);
+        registrar("mosRep", "Muestra un cliente por su ID de usuario",
+                new String[]{"id_usuario"}, "mosRep[\"3\"]", cliente::mostrar);
+        registrar("insRep", "Convierte un usuario existente en cliente de una empresa",
+                new String[]{"id_usuario", "ci", "cargo", "id_empresa"},
+                "insRep[\"3\",\"4715292\",\"Gerente comercial\",\"1\"]", cliente::insertar);
+        registrar("modRep", "Modifica los datos de cliente de un usuario",
+                new String[]{"id_usuario", "ci", "cargo", "id_empresa"},
+                "modRep[\"3\",\"4715292\",\"Representante legal\",\"1\"]", cliente::modificar);
+        registrar("eliRep", "Quita el perfil de cliente (el usuario se mantiene)",
+                new String[]{"id_usuario"}, "eliRep[\"3\"]", cliente::eliminar);
+        registrar("lisEmp", "Lista las empresas anunciantes (\"*\" = todas)",
+                new String[]{"filtro"}, "lisEmp[\"*\"]", empresa::listar);
     }
 
     private void grupo(String nombre) {

@@ -75,7 +75,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 ### Requisitos funcionales → casos de uso
 | CU | Nombre | Requisitos | Tablas principales | Estado |
 |---|---|---|---|---|
-| **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | 🟡 **En curso**: CRUD de usuario completo; roles (listar/registrar) y unidades (listar) |
+| **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ⚪ Pendiente |
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ⚪ Pendiente |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ⚪ Pendiente |
@@ -157,15 +157,19 @@ proyecto-mail/
     │   ├── Respuesta.java     ← exito/error + título + HTML
     │   └── ComandoException   ← error de validación con mensaje para el usuario
     ├── negocio/
-    │   ├── NUsuario.java      ← CU1: listar, mostrar, insertar, modificar, eliminar, activar
-    │   ├── NRol.java          ← listar, insertar
-    │   ├── NUnidad.java       ← listar
-    │   └── Validar.java       ← validaciones reutilizables (id, texto, email, teléfono, password)
+    │   ├── NUsuario.java      ← CU1 usuarios: listar, mostrar, insertar, modificar, eliminar, activar
+    │   ├── NRol.java          ← CU1 roles: CRUD + baja/alta lógica
+    │   ├── NUnidad.java       ← CU1 unidades: CRUD jerárquico (evita ciclos) + baja/alta lógica
+    │   ├── NRepresentante.java← CU1 clientes: perfil de representante de un usuario
+    │   ├── NEmpresa.java      ← consulta de empresas (apoyo; el CRUD es del CU3)
+    │   └── Validar.java       ← validaciones reutilizables (id, texto, email, teléfono, ci, password)
     ├── datos/
     │   ├── Conexion.java      ← abre conexión JDBC; leerFilas(ResultSet)
     │   ├── DUsuario.java
     │   ├── DRol.java
-    │   └── DUnidad.java
+    │   ├── DUnidad.java       ← incluye consulta recursiva (WITH RECURSIVE) para la jerarquía
+    │   ├── DRepresentante.java
+    │   └── DEmpresa.java
     └── util/
         ├── Html.java          ← pagina(), tabla(), esc() (escapar HTML)
         └── Seguridad.java     ← hash de contraseñas PBKDF2-SHA256 con sal
@@ -261,15 +265,41 @@ documentación se escribe siempre en camelCase.
 | Comando | Parámetros | Ejemplo |
 |---|---|---|
 | `help` | — | `help` |
-| `lisUsu` | filtro (`*` = todos; busca por nombre, email o rol) | `lisUsu["*"]` |
+| **Usuarios** | | |
+| `lisUsu` | filtro (`*` = todos; busca por nombre, email, rol o unidad) | `lisUsu["*"]` |
 | `mosUsu` | id_usuario | `mosUsu["1"]` |
 | `insUsu` | nombre_completo, email, telefono, password, id_rol, id_unidad (`""` = sin unidad) | `insUsu["Juan Carlos Perez","juanperez@uagrm.edu.bo","71055123","clave123","1",""]` |
 | `modUsu` | id_usuario, nombre_completo, email, telefono, password (`""` = no cambia), id_rol, id_unidad | `modUsu["1","Juan Carlos Perez","jperez@uagrm.edu.bo","71055123","","1",""]` |
 | `eliUsu` | id_usuario — baja lógica (`activo = false`) | `eliUsu["1"]` |
 | `actUsu` | id_usuario — reactiva | `actUsu["1"]` |
-| `lisRol` | filtro | `lisRol["*"]` |
-| `insRol` | nombre, descripcion | `insRol["Administrador","Acceso total al sistema"]` |
-| `lisUni` | filtro | `lisUni["*"]` |
+| **Roles** (Director, Encargado de Unidad, Cliente…) | | |
+| `lisRol` | filtro (muestra cuántos usuarios activos tiene cada rol) | `lisRol["*"]` |
+| `mosRol` | id_rol | `mosRol["1"]` |
+| `insRol` | nombre, descripcion | `insRol["Director","Director de Canal 11"]` |
+| `modRol` | id_rol, nombre, descripcion | `modRol["2","Director","Dirección general de Canal 11"]` |
+| `eliRol` | id_rol — baja lógica; **rechazada si el rol tiene usuarios activos** | `eliRol["2"]` |
+| `actRol` | id_rol — reactiva | `actRol["2"]` |
+| **Unidades universitarias** (a las que pertenecen los Encargados de Unidad) | | |
+| `lisUni` | filtro (nombre, tipo o unidad padre; muestra los encargados activos) | `lisUni["*"]` |
+| `mosUni` | id_unidad — la unidad y sus subunidades directas | `mosUni["1"]` |
+| `insUni` | nombre, tipo, id_unidad_padre (`""` = unidad raíz) | `insUni["Facultad de Ciencias de la Computación","Facultad",""]` |
+| `modUni` | id_unidad, nombre, tipo, id_unidad_padre — **rechaza ciclos** (ser padre de sí misma o de un ancestro) | `modUni["2","Ingeniería Informática","Carrera","1"]` |
+| `eliUni` | id_unidad — baja lógica; **rechazada con usuarios o subunidades activas** | `eliUni["2"]` |
+| `actUni` | id_unidad — reactiva; **rechazada si su unidad padre está inactiva** | `actUni["2"]` |
+| **Clientes** (usuario + perfil `representante` de una empresa) | | |
+| `lisRep` | filtro (nombre, email, CI, razón social o NIT) | `lisRep["*"]` |
+| `mosRep` | id_usuario | `mosRep["3"]` |
+| `insRep` | id_usuario, ci, cargo, id_empresa — convierte un usuario **activo** existente en cliente | `insRep["3","4715292","Gerente comercial","1"]` |
+| `modRep` | id_usuario, ci, cargo, id_empresa | `modRep["3","4715292","Representante legal","1"]` |
+| `eliRep` | id_usuario — quita el perfil de cliente (borrado físico de `representante`; el usuario se mantiene) | `eliRep["3"]` |
+| `lisEmp` | filtro — empresas anunciantes (solo consulta, apoyo para `insRep`) | `lisEmp["*"]` |
+
+**Flujo típico CU1:**
+1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
+2. `insUni["Facultad de Ciencias de la Computación","Facultad",""]` → `insUni["Ingeniería Informática","Carrera","1"]`.
+3. **Director:** `insUsu[..., id_rol_director, ""]`.
+4. **Encargado de Unidad:** `insUsu[..., id_rol_encargado, id_unidad]`.
+5. **Cliente:** `insUsu[..., id_rol_cliente, ""]` y luego `insRep[id_usuario, ci, cargo, id_empresa]` (la empresa debe existir; su registro es parte del CU3).
 
 ---
 
@@ -399,9 +429,9 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 
 | CU | Comandos propuestos | Notas |
 |---|---|---|
-| **CU1** (completar) | `modRol`, `eliRol`, `actRol` · `insUni`, `modUni`, `eliUni` · `lisRep`, `insRep`, `modRep` (cliente/representante) | `insRep` crea `usuario` + `representante` en una transacción. |
+| **CU1** ✅ | Implementado (ver sección 6). Opcional: control de permisos por rol según el remitente del correo. | Requiere decidir si se agrega una tabla de permisos al esquema. |
 | **CU2** | `lisPla`, `insPla` · `lisRed`, `mosRed`, `insRed`, `modRed`, `eliRed`, `actRed` · `insSeg`, `lisSeg` | `insRed` crea `canal_difusion` + `red_social`; baja = `activo=false` + `fecha_baja`. Responsable = `id_usuario`. |
-| **CU3** | `lisEmp`, `insEmp`, `modEmp`, `eliEmp` · `lisVis`, `insVis` · `lisSer`, `insSer`, `modSer`, `eliSer` · `lisTar`, `insTar`, `modTar`, `eliTar` · `lisPaq`, `insPaq`, `modPaq`, `eliPaq`, `addPaq` (agregar tarifa) · `insPro`, `addDet` (agregar ítem), `mosPro`, `lisPro`, `genCam` (generar campaña desde proforma) | Totales de proforma se **calculan** en negocio: subtotal = Σ detalle; total = subtotal − descuento. `mosPro` es la cotización "descargable" (HTML en el correo). |
+| **CU3** | `insEmp`, `modEmp`, `eliEmp`, `actEmp` (`lisEmp` ya existe) · `lisVis`, `insVis` · `lisSer`, `insSer`, `modSer`, `eliSer` · `lisTar`, `insTar`, `modTar`, `eliTar` · `lisPaq`, `insPaq`, `modPaq`, `eliPaq`, `addPaq` (agregar tarifa) · `insPro`, `addDet` (agregar ítem), `mosPro`, `lisPro`, `genCam` (generar campaña desde proforma) | Totales de proforma se **calculan** en negocio: subtotal = Σ detalle; total = subtotal − descuento. `mosPro` es la cotización "descargable" (HTML en el correo). |
 | **CU4** | `insMat`, `lisMat`, `mosMat` · `aprMat`, `recMat`, `corMat` (aprobar / rechazar / pedir corrección) · `lisRev` | El archivo se referencia por URL (`url_archivo`); cada revisión inserta en `revision_material` y cambia `estado`. Opcional: leer adjuntos del correo. |
 | **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
 | **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |

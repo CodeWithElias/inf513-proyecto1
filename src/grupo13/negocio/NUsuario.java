@@ -24,7 +24,7 @@ public class NUsuario {
     private final DRol rol = new DRol();
     private final DUnidad unidad = new DUnidad();
 
-    /** lisUsu["*"] lista todos; lisUsu["texto"] busca por nombre, email o rol. */
+    /** lisUsu["*"] lista todos; lisUsu["texto"] busca por nombre, email, rol o unidad. */
     public Respuesta listar(List<String> p) throws SQLException {
         String filtro = p.get(0).equals("*") ? null : p.get(0);
         List<String[]> filas = datos.listar(filtro);

@@ -1,0 +1,22 @@
+{
+    // Alternativa sin la extensión de Java: Terminal > Run Task...
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar (javac)",
+            "type": "shell",
+            "command": "javac -encoding UTF-8 -d out -cp \"lib/*\" (Get-ChildItem -Recurse src -Filter *.java).FullName",
+            "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Ejecutar servidor de correo",
+            "type": "shell",
+            "command": "java -cp \"out;lib/*\" grupo13.App",
+            "options": { "shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] } },
+            "dependsOn": "Compilar (javac)",
+            "problemMatcher": []
+        }
+    ]
+}

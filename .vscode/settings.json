@@ -1,0 +1,18 @@
+{
+    // Proyecto Java sin Maven/Gradle: se indica a la extensión dónde están las fuentes y el driver JDBC
+    "java.project.sourcePaths": ["src"],
+    "java.project.referencedLibraries": ["lib/**/*.jar"],
+
+    // Usar JDK 17 (el del proyecto) y no el JDK "latest" del pack de extensiones.
+    // Cada integrante debe ajustar "path" a la ruta de su JDK 17.
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Program Files\\Eclipse Adoptium\\jdk-17.0.20.101-hotspot",
+            "default": true
+        }
+    ],
+
+    // Si la compilación falla, mostrar el error en vez de ejecutar con clases vacías
+    "java.debug.settings.onBuildFailureProceed": false
+}
