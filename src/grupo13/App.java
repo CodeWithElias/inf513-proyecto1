@@ -31,8 +31,9 @@ public class App {
         System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
         App app = new App();
 
-        if (args.length == 2 && args[0].equals("--probar")) {
-            Respuesta r = app.despachador.procesar(args[1]);
+        if (args.length >= 2 && args[0].equals("--probar")) {
+            String comando = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+            Respuesta r = app.despachador.procesar(comando);
             System.out.println("Asunto respuesta: " + r.getTitulo());
             System.out.println(r.getHtml());
             return;

@@ -65,4 +65,21 @@ public final class Validar {
         }
         return valor;
     }
+
+    public static String url(String valor, String campo, int max) throws ComandoException {
+        texto(valor, campo, max);
+        if (!valor.matches("^(https?://)?[A-Za-z0-9.\\-]+(:[0-9]+)?(/.*)?$")) {
+            throw new ComandoException("El campo " + campo + " no contiene una URL válida (recibido: '"
+                    + Html.esc(valor) + "').");
+        }
+        return valor;
+    }
+
+    public static int enteroNoNegativo(String valor, String campo) throws ComandoException {
+        if (!valor.matches("\\d{1,9}")) {
+            throw new ComandoException("El campo " + campo + " debe ser un número entero mayor o igual a 0 (recibido: '"
+                    + Html.esc(valor) + "').");
+        }
+        return Integer.parseInt(valor);
+    }
 }

@@ -1,8 +1,11 @@
 package grupo13.comandos;
 
 import grupo13.negocio.NEmpresa;
+import grupo13.negocio.NPlataforma;
+import grupo13.negocio.NRedSocial;
 import grupo13.negocio.NRepresentante;
 import grupo13.negocio.NRol;
+import grupo13.negocio.NSeguidoresRed;
 import grupo13.negocio.NUnidad;
 import grupo13.negocio.NUsuario;
 import grupo13.util.Html;
@@ -47,6 +50,9 @@ public class Despachador {
         NUnidad unidad = new NUnidad();
         NRepresentante cliente = new NRepresentante();
         NEmpresa empresa = new NEmpresa();
+        NPlataforma plataforma = new NPlataforma();
+        NRedSocial redSocial = new NRedSocial();
+        NSeguidoresRed seguidores = new NSeguidoresRed();
 
         grupo("Ayuda");
         registrar("help", "Lista todos los comandos existentes", new String[]{}, "help", p -> ayuda());
@@ -115,6 +121,34 @@ public class Despachador {
                 new String[]{"id_usuario"}, "eliRep[\"3\"]", cliente::eliminar);
         registrar("lisEmp", "Lista las empresas anunciantes (\"*\" = todas)",
                 new String[]{"filtro"}, "lisEmp[\"*\"]", empresa::listar);
+
+        grupo("CU2: Gestión de Cuentas de Redes Sociales Institucionales");
+        registrar("lisPla", "Lista las plataformas de redes sociales (\"*\" = todas)",
+                new String[]{"filtro"}, "lisPla[\"*\"]", plataforma::listar);
+        registrar("insPla", "Registra una plataforma de red social",
+                new String[]{"nombre"}, "insPla[\"TikTok\"]", plataforma::insertar);
+
+        registrar("lisRed", "Lista las redes sociales (\"*\" = todas, o busca por nombre/plataforma/url/responsable/unidad)",
+                new String[]{"filtro"}, "lisRed[\"*\"]", redSocial::listar);
+        registrar("mosRed", "Muestra una red social por su ID de canal",
+                new String[]{"id_canal"}, "mosRed[\"1\"]", redSocial::mostrar);
+        registrar("insRed", "Registra una red social institucional (id_usuario e id_unidad pueden ir vacíos \"\")",
+                new String[]{"nombre", "url", "id_plataforma", "id_usuario", "id_unidad"},
+                "insRed[\"Canal 11 Oficial Facebook\",\"https://facebook.com/canal11uagrm\",\"1\",\"1\",\"1\"]",
+                redSocial::insertar);
+        registrar("modRed", "Modifica una red social institucional",
+                new String[]{"id_canal", "nombre", "url", "id_plataforma", "id_usuario", "id_unidad"},
+                "modRed[\"1\",\"Canal 11 Oficial FB\",\"https://facebook.com/canal11oficial\",\"1\",\"1\",\"1\"]",
+                redSocial::modificar);
+        registrar("eliRed", "Da de baja una red social (inactivación lógica)",
+                new String[]{"id_canal"}, "eliRed[\"1\"]", redSocial::eliminar);
+        registrar("actRed", "Reactiva una red social dada de baja",
+                new String[]{"id_canal"}, "actRed[\"1\"]", redSocial::activar);
+
+        registrar("insSeg", "Registra el conteo de seguidores para la fecha actual",
+                new String[]{"id_canal", "seguidores"}, "insSeg[\"1\",\"15400\"]", seguidores::insertar);
+        registrar("lisSeg", "Lista el historial de mediciones de seguidores de una red social",
+                new String[]{"id_canal"}, "lisSeg[\"1\"]", seguidores::listar);
     }
 
     private void grupo(String nombre) {
