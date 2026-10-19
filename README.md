@@ -77,7 +77,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 |---|---|---|---|---|
 | **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
-| **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ⚪ Pendiente |
+| **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ⚪ Pendiente |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `espacio_publicitario`, `programacion_pauta`, `notificacion` | ⚪ Pendiente |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ⚪ Pendiente |
@@ -161,15 +161,27 @@ proyecto-mail/
     │   ├── NRol.java          ← CU1 roles: CRUD + baja/alta lógica
     │   ├── NUnidad.java       ← CU1 unidades: CRUD jerárquico (evita ciclos) + baja/alta lógica
     │   ├── NRepresentante.java← CU1 clientes: perfil de representante de un usuario
-    │   ├── NEmpresa.java      ← consulta de empresas (apoyo; el CRUD es del CU3)
-    │   └── Validar.java       ← validaciones reutilizables (id, texto, email, teléfono, ci, password)
+    │   ├── NEmpresa.java      ← CU3 empresas anunciantes: CRUD + baja/alta lógica
+    │   ├── NVisitante.java    ← CU3 visitantes (cotizan sin cuenta)
+    │   ├── NServicio.java     ← CU3 servicios publicitarios
+    │   ├── NTarifa.java       ← CU3 tarifario (vigencia por fechas, opcional por unidad)
+    │   ├── NPaquete.java      ← CU3 paquetes de tarifas con descuento %
+    │   ├── NProforma.java     ← CU3 proformas/cotizaciones (estados, ítems, totales)
+    │   ├── NCampania.java     ← CU3 campañas generadas desde proformas aprobadas
+    │   └── Validar.java       ← validaciones reutilizables (id, texto, email, teléfono, ci, password, url, monto, porcentaje, fecha, nit)
     ├── datos/
-    │   ├── Conexion.java      ← abre conexión JDBC; leerFilas(ResultSet)
+    │   ├── Conexion.java      ← abre conexión JDBC; leerFilas(); ayudantes consultar/ejecutar/insertar/enTransaccion
     │   ├── DUsuario.java
     │   ├── DRol.java
     │   ├── DUnidad.java       ← incluye consulta recursiva (WITH RECURSIVE) para la jerarquía
     │   ├── DRepresentante.java
-    │   └── DEmpresa.java
+    │   ├── DEmpresa.java
+    │   ├── DVisitante.java
+    │   ├── DServicio.java
+    │   ├── DTarifa.java       ← al modificar, recalcula los paquetes que la usan
+    │   ├── DPaquete.java      ← precio_total recalculado en SQL
+    │   ├── DProforma.java     ← nro PRO-AAAA-NNNNN, subtotal/total recalculados en transacción
+    │   └── DCampania.java
     └── util/
         ├── Html.java          ← pagina(), tabla(), esc() (escapar HTML)
         └── Seguridad.java     ← hash de contraseñas PBKDF2-SHA256 con sal
@@ -292,7 +304,6 @@ documentación se escribe siempre en camelCase.
 | `insRep` | id_usuario, ci, cargo, id_empresa — convierte un usuario **activo** existente en cliente | `insRep["3","4715292","Gerente comercial","1"]` |
 | `modRep` | id_usuario, ci, cargo, id_empresa | `modRep["3","4715292","Representante legal","1"]` |
 | `eliRep` | id_usuario — quita el perfil de cliente (borrado físico de `representante`; el usuario se mantiene) | `eliRep["3"]` |
-| `lisEmp` | filtro — empresas anunciantes (solo consulta, apoyo para `insRep`) | `lisEmp["*"]` |
 | **Plataformas de Redes Sociales** | | |
 | `lisPla` | filtro (`*` = todas; muestra conteo de redes activas) | `lisPla["*"]` |
 | `insPla` | nombre | `insPla["TikTok"]` |
@@ -306,13 +317,66 @@ documentación se escribe siempre en camelCase.
 | **Seguidores** | | |
 | `insSeg` | id_canal, seguidores — registra recuento para la fecha actual | `insSeg["1","15400"]` |
 | `lisSeg` | id_canal — historial de mediciones de seguidores | `lisSeg["1"]` |
+| **CU3 · Empresas anunciantes** (RF04) | | |
+| `lisEmp` | filtro (razón social, NIT o nombre comercial) | `lisEmp["*"]` |
+| `mosEmp` | id_empresa — la empresa y sus representantes | `mosEmp["1"]` |
+| `insEmp` | razon_social, nit (solo dígitos, único), nombre_comercial, direccion_facturacion, email_facturacion, telefono (los 4 últimos pueden ir `""`) | `insEmp["Importadora Santa Cruz SRL","1023456789","ImporSCZ","Av. Banzer 123","facturas@imporscz.com","33445566"]` |
+| `modEmp` | id_empresa + los 6 campos de `insEmp` | `modEmp["1","Importadora Santa Cruz SRL","1023456789","ImporSCZ","Av. Banzer 456","facturas@imporscz.com","33445566"]` |
+| `eliEmp` | id_empresa — baja lógica; **rechazada con proformas pendientes** | `eliEmp["1"]` |
+| `actEmp` | id_empresa — reactiva | `actEmp["1"]` |
+| **CU3 · Visitantes** (cotizan sin cuenta) | | |
+| `lisVis` | filtro | `lisVis["*"]` |
+| `insVis` | nombre, email, telefono (al menos uno de los dos contactos) | `insVis["María López","maria@gmail.com","70011223"]` |
+| `modVis` | id_visitante, nombre, email, telefono | `modVis["1","María López","maria.lopez@gmail.com","70011223"]` |
+| `eliVis` | id_visitante — borrado físico, **solo sin proformas** (la tabla no tiene `activo`) | `eliVis["1"]` |
+| **CU3 · Servicios publicitarios** (RF05) | | |
+| `lisSer` | filtro | `lisSer["*"]` |
+| `insSer` | nombre (único), tipo, descripcion | `insSer["Spot en pausa comercial","TV","Spot de 30 s en tanda comercial"]` |
+| `modSer` | id_servicio, nombre, tipo, descripcion | `modSer["1","Spot en pausa comercial","TV","Spot de 30 s en horario estelar"]` |
+| `eliSer` | id_servicio — baja lógica; **rechazada con tarifas activas** | `eliSer["1"]` |
+| `actSer` | id_servicio | `actSer["1"]` |
+| **CU3 · Tarifario** (RF05) — fechas `DD/MM/AAAA`, montos `150` / `150.50` / `150,50` | | |
+| `lisTar` | filtro (servicio, tipo, unidad o unidad de cobro); muestra si está **vigente hoy** | `lisTar["*"]` |
+| `mosTar` | id_tarifa | `mosTar["1"]` |
+| `insTar` | id_servicio, id_unidad (`""` = general), monto, unidad_cobro, duracion_seg, vigente_desde, vigente_hasta (los 5 últimos salvo monto pueden ir `""`) | `insTar["1","","350.00","por spot","30","01/01/2026","31/12/2026"]` |
+| `modTar` | id_tarifa + los 7 campos de `insTar` — **recalcula los paquetes** que la usan; las proformas emitidas no cambian | `modTar["1","1","","380.00","por spot","30","01/01/2026","31/12/2026"]` |
+| `eliTar` | id_tarifa — deshabilita; **rechazada si está en un paquete activo** | `eliTar["1"]` |
+| `actTar` | id_tarifa | `actTar["1"]` |
+| **CU3 · Paquetes** (RF06) — `precio_total = Σ(monto × cantidad) × (1 − descuento%/100)` | | |
+| `lisPaq` | filtro | `lisPaq["*"]` |
+| `mosPaq` | id_paquete — con el detalle de sus tarifas | `mosPaq["1"]` |
+| `insPaq` | nombre, descripcion, descuento (% 0–100; `""` = 0) | `insPaq["Paquete TV + Redes","Spots en TV y publicaciones en redes","10"]` |
+| `modPaq` | id_paquete, nombre, descripcion, descuento | `modPaq["1","Paquete TV + Redes","Combo mensual","15"]` |
+| `addPaq` | id_paquete, id_tarifa, cantidad — agrega o actualiza la cantidad (tarifa activa) | `addPaq["1","1","10"]` |
+| `quiPaq` | id_paquete, id_tarifa | `quiPaq["1","1"]` |
+| `eliPaq` / `actPaq` | id_paquete — baja / alta lógica | `eliPaq["1"]` |
+| **CU3 · Proformas y cotizaciones** (RF07) — estados `pendiente → aprobada \| rechazada` (`vencida` si pasó la validez) | | |
+| `lisPro` | filtro (número, estado, empresa, NIT o visitante) | `lisPro["pendiente"]` |
+| `mosPro` | id_proforma — **la cotización completa** (cabecera, ítems, subtotal, descuento, total) | `mosPro["1"]` |
+| `insPro` | id_empresa, id_visitante (**uno de los dos**), dias_validez (`""` = 15), descuento en Bs (`""` = 0) — genera `PRO-AAAA-NNNNN` | `insPro["1","","15","0"]` |
+| `modPro` | id_proforma, descuento (Bs), fecha_validez (no anterior a hoy) | `modPro["1","100","30/11/2026"]` |
+| `addDet` | id_proforma, id_tarifa, id_paquete (**uno de los dos**), cantidad, frecuencia — tarifa vigente o paquete activo con ítems; congela el precio unitario | `addDet["1","1","","20","2 por día"]` |
+| `quiDet` | id_detalle | `quiDet["1"]` |
+| `aprPro` | id_proforma — pendiente, vigente y con ítems | `aprPro["1"]` |
+| `recPro` | id_proforma | `recPro["1"]` |
+| **CU3 · Campañas** | | |
+| `lisCam` | filtro | `lisCam["*"]` |
+| `genCam` | id_proforma (aprobada, **de empresa**, sin campaña), nombre, fecha_inicio, fecha_fin | `genCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026"]` |
+| `modCam` | id_campania, nombre, fecha_inicio, fecha_fin, estado (`activa`, `pausada`, `finalizada`, `cancelada`) | `modCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026","pausada"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
 2. `insUni["Facultad de Ciencias de la Computación","Facultad",""]` → `insUni["Ingeniería Informática","Carrera","1"]`.
 3. **Director:** `insUsu[..., id_rol_director, ""]`.
 4. **Encargado de Unidad:** `insUsu[..., id_rol_encargado, id_unidad]`.
-5. **Cliente:** `insUsu[..., id_rol_cliente, ""]` y luego `insRep[id_usuario, ci, cargo, id_empresa]` (la empresa debe existir; su registro es parte del CU3).
+5. **Cliente:** `insEmp[...]` (CU3), luego `insUsu[..., id_rol_cliente, ""]` y `insRep[id_usuario, ci, cargo, id_empresa]`.
+
+**Flujo típico CU3 (de la oferta a la campaña):**
+1. Oferta: `insSer["Spot en pausa comercial","TV",""]` → `insTar["1","","350","por spot","30","",""]` → `insTar["1","","120","por mención","","",""]`.
+2. Paquete (opcional): `insPaq["Combo TV","","10"]` → `addPaq["1","1","10"]` → `addPaq["1","2","5"]` → `mosPaq["1"]`.
+3. Cliente: `insEmp[...]` (o `insVis[...]` si solo quiere cotizar).
+4. Cotización: `insPro["1","","15","0"]` → `addDet["1","1","","20","2 por día"]` / `addDet["1","","1","1","mensual"]` → `mosPro["1"]` (el correo de respuesta **es** la cotización descargable).
+5. Cierre: `aprPro["1"]` (o `recPro["1"]`) → `genCam["1","Campaña Navidad","01/12/2026","31/12/2026"]` → la campaña queda lista para CU4 (material) y CU5 (pauta).
 
 ---
 
@@ -333,12 +397,15 @@ documentación se escribe siempre en camelCase.
 2. **Nunca devolver `password_hash`** ni datos sensibles en una respuesta.
 3. **Todo texto que vaya al HTML pasa por `Html.esc()`** (los parámetros vienen de cualquier remitente).
 4. Errores para el usuario → `throw new ComandoException("mensaje claro en español")`. El `Despachador` lo convierte en respuesta "Error".
-5. Validaciones de formato con `negocio/Validar` (`id`, `idOpcional`, `texto`, `textoOpcional`, `email`, `telefono`, `password`). Si falta una validación genérica, se agrega ahí.
+5. Validaciones de formato con `negocio/Validar` (`id`, `idOpcional`, `texto`, `textoOpcional`, `email`, `emailOpcional`, `telefono`, `ci`, `nit`, `password`, `url`, `monto`, `montoPositivo`, `porcentaje`, `fecha`, `fechaOpcional`, `rangoFechas`, `enteroOpcional`). Si falta una validación genérica, se agrega ahí.
 6. Antes de insertar/modificar, **verificar en negocio** unicidad y existencia de claves foráneas, para dar un mensaje claro en vez de un error SQL.
 7. **Baja lógica** (`activo = false`) cuando la tabla tiene columna `activo` y/o es referenciada por otras tablas; borrado físico solo en tablas "hoja" o detalle.
 8. Contraseñas → `Seguridad.hashPassword()` (PBKDF2-SHA256, 120 000 iteraciones, sal aleatoria). Verificar con `Seguridad.verificarPassword()`.
 9. Fechas en respuestas formateadas en SQL: `to_char(fecha, 'DD/MM/YYYY HH24:MI')`.
 10. Las clases `D*` abren y cierran su conexión con *try-with-resources* (`Conexion.abrir()`); no se comparten conexiones.
+    Desde CU3 hay ayudantes en `Conexion` que hacen esto por ti: `consultar`, `consultarUno`, `valor`, `ejecutar`,
+    `insertar` (con `RETURNING id`), `estaActivo(tabla, columnaId, id)`, `contar` y `enTransaccion(c -> {...})`
+    para operaciones que tocan varias tablas o recalculan totales. Los `null` se envían como `NULL`.
 11. Mismo estilo que el código existente: llaves en la misma línea, 4 espacios, comentarios `/** */` breves por método público.
 12. **Sin dependencias nuevas.** Si algo parece necesitar una librería (JSON, HTTP, scraping), usar lo que trae el JDK (`java.net.http.HttpClient`, `java.util.regex`, etc.).
 
@@ -444,7 +511,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 |---|---|---|
 | **CU1** ✅ | Implementado (ver sección 6). Opcional: control de permisos por rol según el remitente del correo. | Requiere decidir si se agrega una tabla de permisos al esquema. |
 | **CU2** ✅ | Implementado (ver sección 6). | `canal_difusion` + `red_social` en transacción; bajas lógicas y seguidores. |
-| **CU3** | `insEmp`, `modEmp`, `eliEmp`, `actEmp` (`lisEmp` ya existe) · `lisVis`, `insVis` · `lisSer`, `insSer`, `modSer`, `eliSer` · `lisTar`, `insTar`, `modTar`, `eliTar` · `lisPaq`, `insPaq`, `modPaq`, `eliPaq`, `addPaq` (agregar tarifa) · `insPro`, `addDet` (agregar ítem), `mosPro`, `lisPro`, `genCam` (generar campaña desde proforma) | Totales de proforma se **calculan** en negocio: subtotal = Σ detalle; total = subtotal − descuento. `mosPro` es la cotización "descargable" (HTML en el correo). |
+| **CU3** ✅ | Implementado (ver sección 6). | Totales y precios se recalculan en SQL dentro de transacciones; cada ítem de proforma congela su precio unitario. |
 | **CU4** | `insMat`, `lisMat`, `mosMat` · `aprMat`, `recMat`, `corMat` (aprobar / rechazar / pedir corrección) · `lisRev` | El archivo se referencia por URL (`url_archivo`); cada revisión inserta en `revision_material` y cambia `estado`. Opcional: leer adjuntos del correo. |
 | **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
 | **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |

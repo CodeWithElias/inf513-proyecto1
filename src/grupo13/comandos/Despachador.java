@@ -1,6 +1,12 @@
 package grupo13.comandos;
 
+import grupo13.negocio.NCampania;
 import grupo13.negocio.NEmpresa;
+import grupo13.negocio.NPaquete;
+import grupo13.negocio.NProforma;
+import grupo13.negocio.NServicio;
+import grupo13.negocio.NTarifa;
+import grupo13.negocio.NVisitante;
 import grupo13.negocio.NPlataforma;
 import grupo13.negocio.NRedSocial;
 import grupo13.negocio.NRepresentante;
@@ -119,8 +125,6 @@ public class Despachador {
                 "modRep[\"3\",\"4715292\",\"Representante legal\",\"1\"]", cliente::modificar);
         registrar("eliRep", "Quita el perfil de cliente (el usuario se mantiene)",
                 new String[]{"id_usuario"}, "eliRep[\"3\"]", cliente::eliminar);
-        registrar("lisEmp", "Lista las empresas anunciantes (\"*\" = todas)",
-                new String[]{"filtro"}, "lisEmp[\"*\"]", empresa::listar);
 
         grupo("CU2: Gestión de Cuentas de Redes Sociales Institucionales");
         registrar("lisPla", "Lista las plataformas de redes sociales (\"*\" = todas)",
@@ -149,6 +153,152 @@ public class Despachador {
                 new String[]{"id_canal", "seguidores"}, "insSeg[\"1\",\"15400\"]", seguidores::insertar);
         registrar("lisSeg", "Lista el historial de mediciones de seguidores de una red social",
                 new String[]{"id_canal"}, "lisSeg[\"1\"]", seguidores::listar);
+
+        registrarCu3(empresa);
+    }
+
+    /** CU3: Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones (RF04 a RF07). */
+    private void registrarCu3(NEmpresa empresa) {
+        NVisitante visitante = new NVisitante();
+        NServicio servicio = new NServicio();
+        NTarifa tarifa = new NTarifa();
+        NPaquete paquete = new NPaquete();
+        NProforma proforma = new NProforma();
+        NCampania campania = new NCampania();
+
+        grupo("CU3: Empresas anunciantes (RF04)");
+        registrar("lisEmp", "Lista las empresas (busca por razón social, NIT o nombre comercial)",
+                new String[]{"filtro"},
+                "lisEmp[\"*\"]", empresa::listar);
+        registrar("mosEmp", "Muestra una empresa y sus representantes",
+                new String[]{"id_empresa"},
+                "mosEmp[\"1\"]", empresa::mostrar);
+        registrar("insEmp", "Registra una empresa (nombre_comercial, dirección, email y teléfono pueden ir vacíos)",
+                NEmpresa.PARAMS,
+                "insEmp[\"Importadora Santa Cruz SRL\",\"1023456789\",\"ImporSCZ\",\"Av. Banzer 123\",\"facturas@imporscz.com\",\"33445566\"]", empresa::insertar);
+        registrar("modEmp", "Modifica una empresa",
+                new String[]{"id_empresa", "razon_social", "nit", "nombre_comercial", "direccion_facturacion", "email_facturacion", "telefono"},
+                "modEmp[\"1\",\"Importadora Santa Cruz SRL\",\"1023456789\",\"ImporSCZ\",\"Av. Banzer 456\",\"facturas@imporscz.com\",\"33445566\"]", empresa::modificar);
+        registrar("eliEmp", "Da de baja una empresa (sin proformas pendientes)",
+                new String[]{"id_empresa"},
+                "eliEmp[\"1\"]", empresa::eliminar);
+        registrar("actEmp", "Reactiva una empresa dada de baja",
+                new String[]{"id_empresa"},
+                "actEmp[\"1\"]", empresa::activar);
+
+        grupo("CU3: Visitantes (cotizan sin cuenta)");
+        registrar("lisVis", "Lista los visitantes",
+                new String[]{"filtro"},
+                "lisVis[\"*\"]", visitante::listar);
+        registrar("insVis", "Registra un visitante (email o teléfono obligatorio)",
+                new String[]{"nombre", "email", "telefono"},
+                "insVis[\"María López\",\"maria@gmail.com\",\"70011223\"]", visitante::insertar);
+        registrar("modVis", "Modifica un visitante",
+                new String[]{"id_visitante", "nombre", "email", "telefono"},
+                "modVis[\"1\",\"María López\",\"maria.lopez@gmail.com\",\"70011223\"]", visitante::modificar);
+        registrar("eliVis", "Elimina un visitante (solo si no tiene proformas)",
+                new String[]{"id_visitante"},
+                "eliVis[\"1\"]", visitante::eliminar);
+
+        grupo("CU3: Servicios publicitarios (RF05)");
+        registrar("lisSer", "Lista los servicios publicitarios",
+                new String[]{"filtro"},
+                "lisSer[\"*\"]", servicio::listar);
+        registrar("insSer", "Registra un servicio (tipo y descripción pueden ir vacíos)",
+                new String[]{"nombre", "tipo", "descripcion"},
+                "insSer[\"Spot en pausa comercial\",\"TV\",\"Spot de 30 s en tanda comercial\"]", servicio::insertar);
+        registrar("modSer", "Modifica un servicio",
+                new String[]{"id_servicio", "nombre", "tipo", "descripcion"},
+                "modSer[\"1\",\"Spot en pausa comercial\",\"TV\",\"Spot de 30 s en horario estelar\"]", servicio::modificar);
+        registrar("eliSer", "Da de baja un servicio (sin tarifas activas)",
+                new String[]{"id_servicio"},
+                "eliSer[\"1\"]", servicio::eliminar);
+        registrar("actSer", "Reactiva un servicio",
+                new String[]{"id_servicio"},
+                "actSer[\"1\"]", servicio::activar);
+
+        grupo("CU3: Tarifario (RF05) - fechas DD/MM/AAAA; id_unidad, unidad_cobro, duración y vigencia pueden ir vacíos");
+        registrar("lisTar", "Lista las tarifas (busca por servicio, tipo, unidad o unidad de cobro)",
+                new String[]{"filtro"},
+                "lisTar[\"*\"]", tarifa::listar);
+        registrar("mosTar", "Muestra una tarifa",
+                new String[]{"id_tarifa"},
+                "mosTar[\"1\"]", tarifa::mostrar);
+        registrar("insTar", "Registra una tarifa para un servicio",
+                NTarifa.PARAMS,
+                "insTar[\"1\",\"\",\"350.00\",\"por spot\",\"30\",\"01/01/2026\",\"31/12/2026\"]", tarifa::insertar);
+        registrar("modTar", "Modifica una tarifa (recalcula los paquetes que la usan)",
+                new String[]{"id_tarifa", "id_servicio", "id_unidad", "monto", "unidad_cobro", "duracion_seg", "vigente_desde", "vigente_hasta"},
+                "modTar[\"1\",\"1\",\"\",\"380.00\",\"por spot\",\"30\",\"01/01/2026\",\"31/12/2026\"]", tarifa::modificar);
+        registrar("eliTar", "Deshabilita una tarifa (no debe estar en paquetes activos)",
+                new String[]{"id_tarifa"},
+                "eliTar[\"1\"]", tarifa::eliminar);
+        registrar("actTar", "Reactiva una tarifa",
+                new String[]{"id_tarifa"},
+                "actTar[\"1\"]", tarifa::activar);
+
+        grupo("CU3: Paquetes publicitarios (RF06)");
+        registrar("lisPaq", "Lista los paquetes",
+                new String[]{"filtro"},
+                "lisPaq[\"*\"]", paquete::listar);
+        registrar("mosPaq", "Muestra un paquete con sus tarifas",
+                new String[]{"id_paquete"},
+                "mosPaq[\"1\"]", paquete::mostrar);
+        registrar("insPaq", "Registra un paquete (descuento en %; vacío = 0)",
+                new String[]{"nombre", "descripcion", "descuento"},
+                "insPaq[\"Paquete TV + Redes\",\"Spots en TV y publicaciones en redes de facultades\",\"10\"]", paquete::insertar);
+        registrar("modPaq", "Modifica un paquete (recalcula su precio)",
+                new String[]{"id_paquete", "nombre", "descripcion", "descuento"},
+                "modPaq[\"1\",\"Paquete TV + Redes\",\"Combo mensual\",\"15\"]", paquete::modificar);
+        registrar("addPaq", "Agrega una tarifa al paquete (o cambia su cantidad)",
+                new String[]{"id_paquete", "id_tarifa", "cantidad"},
+                "addPaq[\"1\",\"1\",\"10\"]", paquete::agregarTarifa);
+        registrar("quiPaq", "Quita una tarifa del paquete",
+                new String[]{"id_paquete", "id_tarifa"},
+                "quiPaq[\"1\",\"1\"]", paquete::quitarTarifa);
+        registrar("eliPaq", "Da de baja un paquete",
+                new String[]{"id_paquete"},
+                "eliPaq[\"1\"]", paquete::eliminar);
+        registrar("actPaq", "Reactiva un paquete",
+                new String[]{"id_paquete"},
+                "actPaq[\"1\"]", paquete::activar);
+
+        grupo("CU3: Proformas y cotizaciones (RF07)");
+        registrar("lisPro", "Lista las proformas (busca por número, estado, empresa, NIT o visitante)",
+                new String[]{"filtro"},
+                "lisPro[\"pendiente\"]", proforma::listar);
+        registrar("mosPro", "Muestra la cotización completa con su detalle y totales",
+                new String[]{"id_proforma"},
+                "mosPro[\"1\"]", proforma::mostrar);
+        registrar("insPro", "Crea una proforma para una empresa o un visitante (dias_validez vacío = 15; descuento en Bs)",
+                new String[]{"id_empresa", "id_visitante", "dias_validez", "descuento"},
+                "insPro[\"1\",\"\",\"15\",\"0\"]", proforma::insertar);
+        registrar("modPro", "Modifica el descuento (Bs) y la fecha de validez de una proforma pendiente",
+                new String[]{"id_proforma", "descuento", "fecha_validez"},
+                "modPro[\"1\",\"100\",\"30/11/2026\"]", proforma::modificar);
+        registrar("addDet", "Agrega una tarifa o un paquete a la proforma (uno de los dos vacío)",
+                new String[]{"id_proforma", "id_tarifa", "id_paquete", "cantidad", "frecuencia"},
+                "addDet[\"1\",\"1\",\"\",\"20\",\"2 por día\"]", proforma::agregarDetalle);
+        registrar("quiDet", "Quita un ítem de la proforma",
+                new String[]{"id_detalle"},
+                "quiDet[\"1\"]", proforma::quitarDetalle);
+        registrar("aprPro", "Aprueba la proforma (el cliente acepta la cotización)",
+                new String[]{"id_proforma"},
+                "aprPro[\"1\"]", proforma::aprobar);
+        registrar("recPro", "Rechaza la proforma",
+                new String[]{"id_proforma"},
+                "recPro[\"1\"]", proforma::rechazar);
+
+        grupo("CU3: Campañas (desde una proforma aprobada)");
+        registrar("lisCam", "Lista las campañas",
+                new String[]{"filtro"},
+                "lisCam[\"*\"]", campania::listar);
+        registrar("genCam", "Genera la campaña de una proforma aprobada de una empresa",
+                new String[]{"id_proforma", "nombre", "fecha_inicio", "fecha_fin"},
+                "genCam[\"1\",\"Campaña Navidad 2026\",\"01/12/2026\",\"31/12/2026\"]", campania::generar);
+        registrar("modCam", "Modifica una campaña (estado: activa, pausada, finalizada, cancelada)",
+                new String[]{"id_campania", "nombre", "fecha_inicio", "fecha_fin", "estado"},
+                "modCam[\"1\",\"Campaña Navidad 2026\",\"01/12/2026\",\"31/12/2026\",\"pausada\"]", campania::modificar);
     }
 
     private void grupo(String nombre) {
