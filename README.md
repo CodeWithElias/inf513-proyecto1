@@ -76,7 +76,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | CU | Nombre | Requisitos | Tablas principales | Estado |
 |---|---|---|---|---|
 | **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
-| **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ⚪ Pendiente |
+| **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ⚪ Pendiente |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ⚪ Pendiente |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `espacio_publicitario`, `programacion_pauta`, `notificacion` | ⚪ Pendiente |
@@ -293,6 +293,19 @@ documentación se escribe siempre en camelCase.
 | `modRep` | id_usuario, ci, cargo, id_empresa | `modRep["3","4715292","Representante legal","1"]` |
 | `eliRep` | id_usuario — quita el perfil de cliente (borrado físico de `representante`; el usuario se mantiene) | `eliRep["3"]` |
 | `lisEmp` | filtro — empresas anunciantes (solo consulta, apoyo para `insRep`) | `lisEmp["*"]` |
+| **Plataformas de Redes Sociales** | | |
+| `lisPla` | filtro (`*` = todas; muestra conteo de redes activas) | `lisPla["*"]` |
+| `insPla` | nombre | `insPla["TikTok"]` |
+| **Redes Sociales Institucionales** | | |
+| `lisRed` | filtro (`*` = todas; busca por nombre, plataforma, URL, responsable o unidad) | `lisRed["*"]` |
+| `mosRed` | id_canal | `mosRed["1"]` |
+| `insRed` | nombre, url, id_plataforma, id_usuario (`""` = sin asignar), id_unidad (`""` = sin unidad) | `insRed["Canal 11 Oficial Facebook","https://facebook.com/canal11uagrm","1","1","1"]` |
+| `modRed` | id_canal, nombre, url, id_plataforma, id_usuario, id_unidad | `modRed["1","Canal 11 FB Oficial","https://facebook.com/canal11oficial","1","1","1"]` |
+| `eliRed` | id_canal — baja lógica (`activo = false`, registra `fecha_baja`) | `eliRed["1"]` |
+| `actRed` | id_canal — reactiva | `actRed["1"]` |
+| **Seguidores** | | |
+| `insSeg` | id_canal, seguidores — registra recuento para la fecha actual | `insSeg["1","15400"]` |
+| `lisSeg` | id_canal — historial de mediciones de seguidores | `lisSeg["1"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -430,7 +443,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | CU | Comandos propuestos | Notas |
 |---|---|---|
 | **CU1** ✅ | Implementado (ver sección 6). Opcional: control de permisos por rol según el remitente del correo. | Requiere decidir si se agrega una tabla de permisos al esquema. |
-| **CU2** | `lisPla`, `insPla` · `lisRed`, `mosRed`, `insRed`, `modRed`, `eliRed`, `actRed` · `insSeg`, `lisSeg` | `insRed` crea `canal_difusion` + `red_social`; baja = `activo=false` + `fecha_baja`. Responsable = `id_usuario`. |
+| **CU2** ✅ | Implementado (ver sección 6). | `canal_difusion` + `red_social` en transacción; bajas lógicas y seguidores. |
 | **CU3** | `insEmp`, `modEmp`, `eliEmp`, `actEmp` (`lisEmp` ya existe) · `lisVis`, `insVis` · `lisSer`, `insSer`, `modSer`, `eliSer` · `lisTar`, `insTar`, `modTar`, `eliTar` · `lisPaq`, `insPaq`, `modPaq`, `eliPaq`, `addPaq` (agregar tarifa) · `insPro`, `addDet` (agregar ítem), `mosPro`, `lisPro`, `genCam` (generar campaña desde proforma) | Totales de proforma se **calculan** en negocio: subtotal = Σ detalle; total = subtotal − descuento. `mosPro` es la cotización "descargable" (HTML en el correo). |
 | **CU4** | `insMat`, `lisMat`, `mosMat` · `aprMat`, `recMat`, `corMat` (aprobar / rechazar / pedir corrección) · `lisRev` | El archivo se referencia por URL (`url_archivo`); cada revisión inserta en `revision_material` y cambia `estado`. Opcional: leer adjuntos del correo. |
 | **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
