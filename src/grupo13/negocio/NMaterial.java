@@ -126,7 +126,7 @@ public class NMaterial {
             String t = validarTipo(tipo);
             String[] f = buscar(id);
             if (!PENDIENTE.equals(f[ESTADO])) {
-                throw new NegocioException("El material " + id + " está " + f[ESTADO]
+                throw new NegocioException("El material " + id + " está " + estadoLegible(f[ESTADO])
                         + "; solo se modifica mientras está pendiente de revisión.");
             }
             Contenido m = validarContenido(t, nombreArchivo, url, duracionSeg, texto, Integer.parseInt(f[ID_CAMPANIA]));
@@ -143,7 +143,7 @@ public class NMaterial {
             int id = Validar.id(idMaterial, "id_material");
             String[] f = buscar(id);
             if (!CORRECCION.equals(f[ESTADO])) {
-                throw new NegocioException("El material " + id + " está " + f[ESTADO]
+                throw new NegocioException("El material " + id + " está " + estadoLegible(f[ESTADO])
                         + "; solo se sube una nueva versión cuando se solicitaron correcciones.");
             }
             Contenido m = validarContenido(f[TIPO], nombreArchivo, url, duracionSeg, texto, Integer.parseInt(f[ID_CAMPANIA]));
@@ -199,7 +199,7 @@ public class NMaterial {
                     : Validar.textoOpcional(observaciones, "observaciones", TEXTO_MAX);
             String[] f = buscar(id);
             if (!PENDIENTE.equals(f[ESTADO])) {
-                throw new NegocioException("El material " + id + " está " + f[ESTADO] + "; solo se revisa material pendiente.");
+                throw new NegocioException("El material " + id + " está " + estadoLegible(f[ESTADO]) + "; solo se revisa material pendiente.");
             }
             Boolean activo = usuario.estaActivo(rev);
             if (activo == null) {
@@ -270,6 +270,11 @@ public class NMaterial {
             throw new NegocioException("El material de tipo " + tipo + " no lleva duración; deje el campo vacío.");
         }
         return m;
+    }
+
+    /** Estado en lenguaje natural para los mensajes ("en corrección" en lugar de "correccion"). */
+    private static String estadoLegible(String estado) {
+        return CORRECCION.equals(estado) ? "en corrección" : estado;
     }
 
     /** Extensión del archivo en minúsculas (sin el punto). */
