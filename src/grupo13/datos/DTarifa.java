@@ -4,16 +4,17 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
-/** Capa de datos de tarifa (precio de un servicio, opcionalmente por unidad universitaria). RF05. */
+/**
+ * Capa de datos de tarifa (precio de un servicio, opcionalmente por unidad universitaria).
+ * Fila: id_tarifa, servicio, unidad, monto, unidad_cobro, duracion_seg, vigente_desde, vigente_hasta, activo.
+ */
 public class DTarifa {
 
     private static final String SELECT =
             "SELECT t.id_tarifa, s.nombre AS servicio, uu.nombre AS unidad, t.monto, t.unidad_cobro, t.duracion_seg,"
-            + " to_char(t.vigente_desde, 'DD/MM/YYYY'), to_char(t.vigente_hasta, 'DD/MM/YYYY'),"
-            + " CASE WHEN t.activo THEN 'Sí' ELSE 'No' END,"
-            + " CASE WHEN t.activo AND (t.vigente_desde IS NULL OR t.vigente_desde <= CURRENT_DATE)"
-            + "       AND (t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE) THEN 'Sí' ELSE 'No' END AS vigente"
+            + " t.vigente_desde, t.vigente_hasta, t.activo"
             + " FROM tarifa t"
             + " JOIN servicio_publicitario s ON s.id_servicio = t.id_servicio"
             + " LEFT JOIN unidad_universitaria uu ON uu.id_unidad = t.id_unidad";
@@ -35,32 +36,27 @@ public class DTarifa {
         return Conexion.estaActivo("tarifa", "id_tarifa", id);
     }
 
-    /** Activa y dentro de su periodo de vigencia (hoy). */
-    public boolean esVigente(int id) throws SQLException {
-        return Conexion.contar("SELECT count(*) FROM tarifa WHERE id_tarifa = ? AND activo"
-                + " AND (vigente_desde IS NULL OR vigente_desde <= CURRENT_DATE)"
-                + " AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)", id) > 0;
-    }
-
-    public BigDecimal monto(int id) throws SQLException {
-        return new BigDecimal(Conexion.valor("SELECT monto FROM tarifa WHERE id_tarifa = ?", id));
-    }
-
     public int insertar(int idServicio, Integer idUnidad, BigDecimal monto, String unidadCobro, Integer duracionSeg,
                         LocalDate desde, LocalDate hasta) throws SQLException {
         return Conexion.insertar("INSERT INTO tarifa (id_servicio, id_unidad, monto, unidad_cobro, duracion_seg,"
                         + " vigente_desde, vigente_hasta) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_tarifa",
-                idServicio, idUnidad, monto, nulo(unidadCobro), duracionSeg, desde, hasta);
+                idServicio, idUnidad, monto, Conexion.nulo(unidadCobro), duracionSeg, desde, hasta);
     }
 
-    /** Modifica la tarifa y recalcula el precio de los paquetes que la incluyen (las proformas ya emitidas no cambian). */
+    /**
+     * Modifica la tarifa y guarda, en la misma transacción, los nuevos precios de los paquetes que la incluyen
+     * (calculados por la capa de negocio): id_paquete → precio_total.
+     */
     public int modificar(int id, int idServicio, Integer idUnidad, BigDecimal monto, String unidadCobro,
-                         Integer duracionSeg, LocalDate desde, LocalDate hasta) throws SQLException {
+                         Integer duracionSeg, LocalDate desde, LocalDate hasta,
+                         Map<Integer, BigDecimal> preciosPaquetes) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int n = Conexion.ejecutar(c, "UPDATE tarifa SET id_servicio = ?, id_unidad = ?, monto = ?, unidad_cobro = ?,"
                             + " duracion_seg = ?, vigente_desde = ?, vigente_hasta = ? WHERE id_tarifa = ?",
-                    idServicio, idUnidad, monto, nulo(unidadCobro), duracionSeg, desde, hasta, id);
-            DPaquete.recalcularPorTarifa(c, id);
+                    idServicio, idUnidad, monto, Conexion.nulo(unidadCobro), duracionSeg, desde, hasta, id);
+            for (Map.Entry<Integer, BigDecimal> e : preciosPaquetes.entrySet()) {
+                Conexion.ejecutar(c, "UPDATE paquete SET precio_total = ? WHERE id_paquete = ?", e.getValue(), e.getKey());
+            }
             return n;
         });
     }
@@ -69,14 +65,14 @@ public class DTarifa {
         return Conexion.ejecutar("UPDATE tarifa SET activo = ? WHERE id_tarifa = ?", activo, id);
     }
 
-    /** Paquetes activos que incluyen esta tarifa (nombres separados por coma) o null. */
-    public String paquetesActivos(int id) throws SQLException {
-        return Conexion.valor("SELECT string_agg(p.nombre || ' (ID ' || p.id_paquete || ')', ', ')"
-                + " FROM paquete_item i JOIN paquete p ON p.id_paquete = i.id_paquete"
-                + " WHERE i.id_tarifa = ? AND p.activo", id);
+    /** IDs de todos los paquetes (activos o no) que incluyen la tarifa. */
+    public List<Integer> paquetesQueLaIncluyen(int id) throws SQLException {
+        return Conexion.ids("SELECT id_paquete FROM paquete_item WHERE id_tarifa = ? ORDER BY id_paquete", id);
     }
 
-    private static String nulo(String v) {
-        return v == null || v.isEmpty() ? null : v;
+    /** Paquetes activos que incluyen la tarifa. Fila: id_paquete, nombre. */
+    public List<String[]> paquetesActivosQueLaIncluyen(int id) throws SQLException {
+        return Conexion.consultar("SELECT p.id_paquete, p.nombre FROM paquete_item i JOIN paquete p ON p.id_paquete = i.id_paquete"
+                + " WHERE i.id_tarifa = ? AND p.activo ORDER BY p.id_paquete", id);
     }
 }

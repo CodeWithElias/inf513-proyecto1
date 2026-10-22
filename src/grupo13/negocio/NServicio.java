@@ -1,96 +1,107 @@
 package grupo13.negocio;
 
-import grupo13.comandos.ComandoException;
-import grupo13.comandos.Respuesta;
 import grupo13.datos.DServicio;
-import grupo13.util.Html;
 
 import java.sql.SQLException;
 import java.util.List;
 
-/** CU3 / RF05: catálogo de servicios publicitarios (spot TV, mención en vivo, cintillo, publicación en redes…). */
+/**
+ * CU3 / RF05: catálogo de servicios publicitarios (spot TV, mención en vivo, cintillo, publicación en redes…).
+ * Fila: id_servicio, nombre, tipo, descripcion, activo, tarifas_activas.
+ */
 public class NServicio {
-
-    private static final String[] TITULOS = {"ID", "Nombre", "Tipo", "Descripción", "Activo", "Tarifas activas"};
 
     private final DServicio datos = new DServicio();
 
-    /** lisSer["*"] */
-    public Respuesta listar(List<String> p) throws SQLException {
-        String filtro = p.get(0).equals("*") ? null : p.get(0);
-        return Respuesta.exito("Listando los Servicios",
-                Html.pagina("Listando los Servicios Publicitarios", Html.tabla(TITULOS, datos.listar(filtro))));
+    public List<String[]> listar(String filtro) throws NegocioException {
+        try {
+            return datos.listar(filtro);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
     }
 
-    /** insSer["nombre","tipo","descripcion"] */
-    public Respuesta insertar(List<String> p) throws Exception {
-        String nombre = Validar.texto(p.get(0), "nombre", 150);
-        String tipo = Validar.textoOpcional(p.get(1), "tipo", 50);
-        String descripcion = Validar.textoOpcional(p.get(2), "descripcion", 500);
-        if (datos.nombreEnUso(nombre, 0)) {
-            throw new ComandoException("Ya existe un servicio llamado " + Html.esc(nombre) + ".");
+    public String[] obtener(int id) throws NegocioException {
+        try {
+            return buscar(id);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        int id = datos.insertar(nombre, tipo, descripcion);
-        return exito("El servicio fue registrado con ID " + id + ". Defina su precio con insTar.", id);
     }
 
-    /** modSer["id","nombre","tipo","descripcion"] */
-    public Respuesta modificar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_servicio");
-        String nombre = Validar.texto(p.get(1), "nombre", 150);
-        String tipo = Validar.textoOpcional(p.get(2), "tipo", 50);
-        String descripcion = Validar.textoOpcional(p.get(3), "descripcion", 500);
-        buscar(id);
-        if (datos.nombreEnUso(nombre, id)) {
-            throw new ComandoException("Ya existe otro servicio llamado " + Html.esc(nombre) + ".");
+    public int insertar(String nombre, String tipo, String descripcion) throws NegocioException {
+        try {
+            String n = Validar.texto(nombre, "nombre", 150);
+            String t = Validar.textoOpcional(tipo, "tipo", 50);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 500);
+            if (datos.nombreEnUso(n, 0)) {
+                throw new NegocioException("Ya existe un servicio llamado " + n + ".");
+            }
+            return datos.insertar(n, t, d);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        datos.modificar(id, nombre, tipo, descripcion);
-        return exito("El servicio " + id + " fue modificado correctamente.", id);
     }
 
-    /** eliSer["id"]: baja lógica; no se permite con tarifas activas. */
-    public Respuesta eliminar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_servicio");
-        if (!estado(id)) {
-            throw new ComandoException("El servicio " + id + " ya está dado de baja.");
+    public void modificar(String idServicio, String nombre, String tipo, String descripcion) throws NegocioException {
+        try {
+            int id = Validar.id(idServicio, "id_servicio");
+            String n = Validar.texto(nombre, "nombre", 150);
+            String t = Validar.textoOpcional(tipo, "tipo", 50);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 500);
+            buscar(id);
+            if (datos.nombreEnUso(n, id)) {
+                throw new NegocioException("Ya existe otro servicio llamado " + n + ".");
+            }
+            datos.modificar(id, n, t, d);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        int tarifas = datos.contarTarifasActivas(id);
-        if (tarifas > 0) {
-            throw new ComandoException("No se puede dar de baja el servicio " + id + ": tiene " + tarifas
-                    + " tarifa(s) activa(s). Deshabilítelas primero con eliTar.");
-        }
-        datos.cambiarEstado(id, false);
-        return exito("El servicio " + id + " fue dado de baja. Puede reactivarlo con actSer[\"" + id + "\"].", id);
     }
 
-    /** actSer["id"] */
-    public Respuesta activar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_servicio");
-        if (estado(id)) {
-            throw new ComandoException("El servicio " + id + " ya está activo.");
+    /** Baja lógica; no se permite con tarifas activas. */
+    public void eliminar(String idServicio) throws NegocioException {
+        try {
+            int id = Validar.id(idServicio, "id_servicio");
+            if (!estado(id)) {
+                throw new NegocioException("El servicio " + id + " ya está dado de baja.");
+            }
+            int tarifas = datos.contarTarifasActivas(id);
+            if (tarifas > 0) {
+                throw new NegocioException("No se puede dar de baja el servicio " + id + ": tiene " + tarifas
+                        + " tarifa(s) activa(s). Deshabilítelas primero.");
+            }
+            datos.cambiarEstado(id, false);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        datos.cambiarEstado(id, true);
-        return exito("El servicio " + id + " fue reactivado.", id);
     }
 
-    private String[] buscar(int id) throws Exception {
+    public void activar(String idServicio) throws NegocioException {
+        try {
+            int id = Validar.id(idServicio, "id_servicio");
+            if (estado(id)) {
+                throw new NegocioException("El servicio " + id + " ya está activo.");
+            }
+            datos.cambiarEstado(id, true);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    private String[] buscar(int id) throws SQLException, NegocioException {
         String[] fila = datos.obtener(id);
         if (fila == null) {
-            throw new ComandoException("No existe un servicio con ID " + id + ".");
+            throw new NegocioException("No existe un servicio con ID " + id + ".");
         }
         return fila;
     }
 
-    private boolean estado(int id) throws Exception {
+    private boolean estado(int id) throws SQLException, NegocioException {
         Boolean activo = datos.estaActivo(id);
         if (activo == null) {
-            throw new ComandoException("No existe un servicio con ID " + id + ".");
+            throw new NegocioException("No existe un servicio con ID " + id + ".");
         }
         return activo;
-    }
-
-    private Respuesta exito(String mensaje, int id) throws Exception {
-        return Respuesta.exito("Éxito", Html.pagina("Éxito",
-                "<p>" + Html.esc(mensaje) + "</p>" + Html.tabla(TITULOS, List.<String[]>of(buscar(id)))));
     }
 }

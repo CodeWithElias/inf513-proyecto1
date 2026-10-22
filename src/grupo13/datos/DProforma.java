@@ -1,25 +1,23 @@
 package grupo13.datos;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.IntFunction;
 
 /**
- * Capa de datos de proforma y detalle_proforma (cotizaciones, RF07).
- * subtotal = Σ subtotal de los detalles; total = max(subtotal − descuento, 0). Se recalcula en cada cambio.
- * Cada detalle guarda el precio_unitario del momento: si luego cambia la tarifa, la proforma emitida no cambia.
+ * Capa de datos de proforma y detalle_proforma.
+ * Los totales y el número de proforma los calcula la capa de negocio; aquí solo se guardan (en transacción).
+ * Fila: id_proforma, nro_proforma, fecha_emision, fecha_validez, razon_social_empresa, nombre_visitante,
+ *       subtotal, descuento, total, estado, items, id_empresa.
  */
 public class DProforma {
 
     private static final String SELECT =
-            "SELECT p.id_proforma, p.nro_proforma, to_char(p.fecha_emision, 'DD/MM/YYYY'),"
-            + " to_char(p.fecha_validez, 'DD/MM/YYYY'),"
-            + " COALESCE('Empresa: ' || e.razon_social, 'Visitante: ' || v.nombre) AS cliente,"
-            + " p.subtotal, p.descuento, p.total,"
-            + " CASE WHEN p.estado = 'pendiente' AND p.fecha_validez < CURRENT_DATE THEN 'vencida' ELSE p.estado END,"
-            + " (SELECT count(*) FROM detalle_proforma d WHERE d.id_proforma = p.id_proforma) AS items"
+            "SELECT p.id_proforma, p.nro_proforma, p.fecha_emision, p.fecha_validez, e.razon_social, v.nombre,"
+            + " p.subtotal, p.descuento, p.total, p.estado,"
+            + " (SELECT count(*) FROM detalle_proforma d WHERE d.id_proforma = p.id_proforma) AS items, p.id_empresa"
             + " FROM proforma p"
             + " LEFT JOIN empresa_anunciante e ON e.id_empresa = p.id_empresa"
             + " LEFT JOIN visitante v ON v.id_visitante = p.id_visitante";
@@ -37,11 +35,14 @@ public class DProforma {
         return Conexion.consultarUno(SELECT + " WHERE p.id_proforma = ?", id);
     }
 
+    /**
+     * Ítems de la proforma.
+     * Fila: id_detalle, id_tarifa, servicio, unidad, unidad_cobro, id_paquete, paquete, cantidad, frecuencia,
+     *       precio_unitario, subtotal.
+     */
     public List<String[]> detalles(int id) throws SQLException {
-        return Conexion.consultar("SELECT d.id_detalle,"
-                + " CASE WHEN d.id_tarifa IS NOT NULL THEN 'Tarifa' ELSE 'Paquete' END,"
-                + " COALESCE(s.nombre || COALESCE(' - ' || uu.nombre, '') || COALESCE(' (' || t.unidad_cobro || ')', ''), pq.nombre),"
-                + " d.cantidad, d.frecuencia, d.precio_unitario, d.subtotal"
+        return Conexion.consultar("SELECT d.id_detalle, d.id_tarifa, s.nombre, uu.nombre, t.unidad_cobro,"
+                + " d.id_paquete, pq.nombre, d.cantidad, d.frecuencia, d.precio_unitario, d.subtotal"
                 + " FROM detalle_proforma d"
                 + " LEFT JOIN tarifa t ON t.id_tarifa = d.id_tarifa"
                 + " LEFT JOIN servicio_publicitario s ON s.id_servicio = t.id_servicio"
@@ -50,59 +51,49 @@ public class DProforma {
                 + " WHERE d.id_proforma = ? ORDER BY d.id_detalle", id);
     }
 
-    /** {estado, fecha_validez (yyyy-MM-dd), id_empresa, cantidad de detalles} o null si no existe. */
-    public String[] estado(int id) throws SQLException {
-        return Conexion.consultarUno("SELECT p.estado, p.fecha_validez, p.id_empresa,"
-                + " (SELECT count(*) FROM detalle_proforma d WHERE d.id_proforma = p.id_proforma)"
-                + " FROM proforma p WHERE p.id_proforma = ?", id);
+    /** Fila del detalle: id_proforma, subtotal; o null si no existe. */
+    public String[] obtenerDetalle(int idDetalle) throws SQLException {
+        return Conexion.consultarUno("SELECT id_proforma, subtotal FROM detalle_proforma WHERE id_detalle = ?", idDetalle);
     }
 
-    /** Crea la proforma y le asigna el número PRO-AAAA-NNNNN. Devuelve el id. */
-    public int insertar(Integer idEmpresa, Integer idVisitante, LocalDate fechaValidez, BigDecimal descuento)
-            throws SQLException {
+    /**
+     * Crea la proforma y le asigna el número que devuelve 'numerador' a partir del id generado
+     * (la regla del formato la define la capa de negocio).
+     */
+    public int insertar(Integer idEmpresa, Integer idVisitante, LocalDate fechaValidez, BigDecimal descuento,
+                        IntFunction<String> numerador) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int id = Conexion.insertar(c, "INSERT INTO proforma (nro_proforma, fecha_validez, descuento, id_empresa, id_visitante)"
                             + " VALUES ('TMP-' || substr(md5(random()::text), 1, 20), ?, ?, ?, ?) RETURNING id_proforma",
                     fechaValidez, descuento, idEmpresa, idVisitante);
-            Conexion.ejecutar(c, "UPDATE proforma SET nro_proforma = 'PRO-' || to_char(fecha_emision, 'YYYY') || '-'"
-                    + " || lpad(id_proforma::text, 5, '0') WHERE id_proforma = ?", id);
-            recalcular(c, id);
+            Conexion.ejecutar(c, "UPDATE proforma SET nro_proforma = ? WHERE id_proforma = ?", numerador.apply(id), id);
             return id;
         });
     }
 
-    public int modificar(int id, BigDecimal descuento, LocalDate fechaValidez) throws SQLException {
-        return Conexion.enTransaccion(c -> {
-            int n = Conexion.ejecutar(c, "UPDATE proforma SET descuento = ?, fecha_validez = ? WHERE id_proforma = ?",
-                    descuento, fechaValidez, id);
-            recalcular(c, id);
-            return n;
-        });
+    public int modificar(int id, BigDecimal descuento, LocalDate fechaValidez, BigDecimal total) throws SQLException {
+        return Conexion.ejecutar("UPDATE proforma SET descuento = ?, fecha_validez = ?, total = ? WHERE id_proforma = ?",
+                descuento, fechaValidez, total, id);
     }
 
-    /** Exactamente uno de idTarifa / idPaquete debe venir lleno. */
+    /** Inserta el ítem y guarda los nuevos totales de la proforma. Exactamente uno de idTarifa / idPaquete. */
     public int agregarDetalle(int idProforma, Integer idTarifa, Integer idPaquete, int cantidad, String frecuencia,
-                              BigDecimal precioUnitario) throws SQLException {
+                              BigDecimal precioUnitario, BigDecimal subtotalItem,
+                              BigDecimal subtotal, BigDecimal total) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int id = Conexion.insertar(c, "INSERT INTO detalle_proforma (id_proforma, id_tarifa, id_paquete, cantidad,"
                             + " frecuencia, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id_detalle",
-                    idProforma, idTarifa, idPaquete, cantidad, frecuencia.isEmpty() ? null : frecuencia,
-                    precioUnitario, precioUnitario.multiply(BigDecimal.valueOf(cantidad)));
-            recalcular(c, idProforma);
+                    idProforma, idTarifa, idPaquete, cantidad, Conexion.nulo(frecuencia), precioUnitario, subtotalItem);
+            guardarTotales(c, idProforma, subtotal, total);
             return id;
         });
     }
 
-    /** Devuelve el id de la proforma del detalle, o null si el detalle no existe. */
-    public Integer proformaDeDetalle(int idDetalle) throws SQLException {
-        String v = Conexion.valor("SELECT id_proforma FROM detalle_proforma WHERE id_detalle = ?", idDetalle);
-        return v == null ? null : Integer.parseInt(v);
-    }
-
-    public int quitarDetalle(int idDetalle, int idProforma) throws SQLException {
+    /** Elimina el ítem y guarda los nuevos totales de la proforma. */
+    public int quitarDetalle(int idDetalle, int idProforma, BigDecimal subtotal, BigDecimal total) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int n = Conexion.ejecutar(c, "DELETE FROM detalle_proforma WHERE id_detalle = ?", idDetalle);
-            recalcular(c, idProforma);
+            guardarTotales(c, idProforma, subtotal, total);
             return n;
         });
     }
@@ -115,9 +106,8 @@ public class DProforma {
         return Conexion.contar("SELECT count(*) FROM campania WHERE id_proforma = ?", id) > 0;
     }
 
-    private static void recalcular(Connection c, int id) throws SQLException {
-        Conexion.ejecutar(c, "UPDATE proforma p SET subtotal = s.suma, total = GREATEST(s.suma - p.descuento, 0)"
-                + " FROM (SELECT COALESCE(sum(subtotal), 0) AS suma FROM detalle_proforma WHERE id_proforma = ?) s"
-                + " WHERE p.id_proforma = ?", id, id);
+    private static void guardarTotales(java.sql.Connection c, int id, BigDecimal subtotal, BigDecimal total)
+            throws SQLException {
+        Conexion.ejecutar(c, "UPDATE proforma SET subtotal = ?, total = ? WHERE id_proforma = ?", subtotal, total, id);
     }
 }

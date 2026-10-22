@@ -3,13 +3,16 @@ package grupo13.datos;
 import java.sql.SQLException;
 import java.util.List;
 
-/** Capa de datos de empresa_anunciante (CU3 / RF04). */
+/**
+ * Capa de datos de empresa_anunciante.
+ * Fila: id_empresa, razon_social, nit, nombre_comercial, direccion_facturacion, email_facturacion, telefono,
+ *       activo, fecha_registro, representantes.
+ */
 public class DEmpresa {
 
     private static final String SELECT =
             "SELECT e.id_empresa, e.razon_social, e.nit, e.nombre_comercial, e.direccion_facturacion,"
-            + " e.email_facturacion, e.telefono, CASE WHEN e.activo THEN 'Sí' ELSE 'No' END,"
-            + " to_char(e.fecha_registro, 'DD/MM/YYYY'),"
+            + " e.email_facturacion, e.telefono, e.activo, e.fecha_registro,"
             + " (SELECT count(*) FROM representante r WHERE r.id_empresa = e.id_empresa) AS representantes"
             + " FROM empresa_anunciante e";
 
@@ -27,10 +30,9 @@ public class DEmpresa {
         return Conexion.consultarUno(SELECT + " WHERE e.id_empresa = ?", id);
     }
 
-    /** Representantes (clientes) de la empresa. */
+    /** Representantes de la empresa. Fila: id_usuario, nombre_completo, email, ci, cargo, activo. */
     public List<String[]> representantes(int id) throws SQLException {
-        return Conexion.consultar("SELECT u.id_usuario, u.nombre_completo, u.email, r.ci, r.cargo,"
-                + " CASE WHEN u.activo THEN 'Sí' ELSE 'No' END"
+        return Conexion.consultar("SELECT u.id_usuario, u.nombre_completo, u.email, r.ci, r.cargo, u.activo"
                 + " FROM representante r JOIN usuario u ON u.id_usuario = r.id_usuario"
                 + " WHERE r.id_empresa = ? ORDER BY u.id_usuario", id);
     }
@@ -50,14 +52,16 @@ public class DEmpresa {
         return Conexion.insertar("INSERT INTO empresa_anunciante"
                         + " (razon_social, nit, nombre_comercial, direccion_facturacion, email_facturacion, telefono)"
                         + " VALUES (?, ?, ?, ?, ?, ?) RETURNING id_empresa",
-                razonSocial, nit, nulo(nombreComercial), nulo(direccion), nulo(email), nulo(telefono));
+                razonSocial, nit, Conexion.nulo(nombreComercial), Conexion.nulo(direccion), Conexion.nulo(email),
+                Conexion.nulo(telefono));
     }
 
     public int modificar(int id, String razonSocial, String nit, String nombreComercial, String direccion,
                          String email, String telefono) throws SQLException {
         return Conexion.ejecutar("UPDATE empresa_anunciante SET razon_social = ?, nit = ?, nombre_comercial = ?,"
                         + " direccion_facturacion = ?, email_facturacion = ?, telefono = ? WHERE id_empresa = ?",
-                razonSocial, nit, nulo(nombreComercial), nulo(direccion), nulo(email), nulo(telefono), id);
+                razonSocial, nit, Conexion.nulo(nombreComercial), Conexion.nulo(direccion), Conexion.nulo(email),
+                Conexion.nulo(telefono), id);
     }
 
     /** Baja / alta lógica. */
@@ -65,11 +69,7 @@ public class DEmpresa {
         return Conexion.ejecutar("UPDATE empresa_anunciante SET activo = ? WHERE id_empresa = ?", activo, id);
     }
 
-    public int contarProformasPendientes(int id) throws SQLException {
-        return Conexion.contar("SELECT count(*) FROM proforma WHERE id_empresa = ? AND estado = 'pendiente'", id);
-    }
-
-    private static String nulo(String v) {
-        return v == null || v.isEmpty() ? null : v;
+    public int contarProformasEnEstado(int id, String estado) throws SQLException {
+        return Conexion.contar("SELECT count(*) FROM proforma WHERE id_empresa = ? AND estado = ?", id, estado);
     }
 }

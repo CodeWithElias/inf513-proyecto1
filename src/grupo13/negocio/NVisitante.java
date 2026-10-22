@@ -1,76 +1,86 @@
 package grupo13.negocio;
 
-import grupo13.comandos.ComandoException;
-import grupo13.comandos.Respuesta;
 import grupo13.datos.DVisitante;
-import grupo13.util.Html;
 
 import java.sql.SQLException;
 import java.util.List;
 
-/** CU3 / RF07: visitantes (interesados sin cuenta que solicitan cotizaciones). */
+/**
+ * CU3 / RF07: visitantes (interesados sin cuenta que solicitan cotizaciones).
+ * Fila: id_visitante, nombre, email, telefono, fecha_registro, proformas.
+ */
 public class NVisitante {
-
-    private static final String[] TITULOS = {"ID", "Nombre", "Email", "Teléfono", "Fecha registro", "Proformas"};
 
     private final DVisitante datos = new DVisitante();
 
-    /** lisVis["*"] */
-    public Respuesta listar(List<String> p) throws SQLException {
-        String filtro = p.get(0).equals("*") ? null : p.get(0);
-        return Respuesta.exito("Listando los Visitantes",
-                Html.pagina("Listando los Visitantes", Html.tabla(TITULOS, datos.listar(filtro))));
-    }
-
-    /** insVis["nombre","email","telefono"]  (se exige email o teléfono para poder contactarlo) */
-    public Respuesta insertar(List<String> p) throws Exception {
-        String[] d = validar(p, 0);
-        int id = datos.insertar(d[0], d[1], d[2]);
-        return exito("El visitante fue registrado con ID " + id + ". Ya puede generarle una cotización con insPro.", id);
-    }
-
-    /** modVis["id","nombre","email","telefono"] */
-    public Respuesta modificar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_visitante");
-        String[] d = validar(p, 1);
-        buscar(id);
-        datos.modificar(id, d[0], d[1], d[2]);
-        return exito("El visitante " + id + " fue modificado correctamente.", id);
-    }
-
-    /** eliVis["id"]: borrado físico, solo si no tiene proformas (la tabla no tiene columna activo). */
-    public Respuesta eliminar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_visitante");
-        buscar(id);
-        int proformas = datos.contarProformas(id);
-        if (proformas > 0) {
-            throw new ComandoException("No se puede eliminar el visitante " + id + ": tiene " + proformas
-                    + " proforma(s) registrada(s).");
+    public List<String[]> listar(String filtro) throws NegocioException {
+        try {
+            return datos.listar(filtro);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        datos.eliminar(id);
-        return Respuesta.exito("Éxito", Html.pagina("Éxito", "<p>El visitante " + id + " fue eliminado.</p>"));
     }
 
-    private String[] validar(List<String> p, int desde) throws ComandoException {
-        String nombre = Validar.texto(p.get(desde), "nombre", 150);
-        String email = Validar.emailOpcional(p.get(desde + 1));
-        String telefono = Validar.telefono(p.get(desde + 2));
-        if (email.isEmpty() && telefono.isEmpty()) {
-            throw new ComandoException("Debe indicar al menos un email o un teléfono para contactar al visitante.");
+    public String[] obtener(int id) throws NegocioException {
+        try {
+            return buscar(id);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        return new String[]{nombre, email, telefono};
     }
 
-    private String[] buscar(int id) throws Exception {
+    /** Se exige email o teléfono para poder contactarlo. */
+    public int insertar(String nombre, String email, String telefono) throws NegocioException {
+        try {
+            String[] d = validar(nombre, email, telefono);
+            return datos.insertar(d[0], d[1], d[2]);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    public void modificar(String idVisitante, String nombre, String email, String telefono) throws NegocioException {
+        try {
+            int id = Validar.id(idVisitante, "id_visitante");
+            String[] d = validar(nombre, email, telefono);
+            buscar(id);
+            datos.modificar(id, d[0], d[1], d[2]);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    /** Borrado físico, solo si no tiene proformas (la tabla no tiene columna activo). */
+    public void eliminar(String idVisitante) throws NegocioException {
+        try {
+            int id = Validar.id(idVisitante, "id_visitante");
+            buscar(id);
+            int proformas = datos.contarProformas(id);
+            if (proformas > 0) {
+                throw new NegocioException("No se puede eliminar el visitante " + id + ": tiene " + proformas
+                        + " proforma(s) registrada(s).");
+            }
+            datos.eliminar(id);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    private String[] validar(String nombre, String email, String telefono) throws NegocioException {
+        String n = Validar.texto(nombre, "nombre", 150);
+        String e = Validar.emailOpcional(email);
+        String t = Validar.telefono(telefono);
+        if (e.isEmpty() && t.isEmpty()) {
+            throw new NegocioException("Debe indicar al menos un email o un teléfono para contactar al visitante.");
+        }
+        return new String[]{n, e, t};
+    }
+
+    private String[] buscar(int id) throws SQLException, NegocioException {
         String[] fila = datos.obtener(id);
         if (fila == null) {
-            throw new ComandoException("No existe un visitante con ID " + id + ".");
+            throw new NegocioException("No existe un visitante con ID " + id + ".");
         }
         return fila;
-    }
-
-    private Respuesta exito(String mensaje, int id) throws Exception {
-        return Respuesta.exito("Éxito", Html.pagina("Éxito",
-                "<p>" + Html.esc(mensaje) + "</p>" + Html.tabla(TITULOS, List.<String[]>of(buscar(id)))));
     }
 }

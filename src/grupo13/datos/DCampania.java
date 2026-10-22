@@ -4,12 +4,14 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Capa de datos de campania (se genera a partir de una proforma aprobada: proforma 1 - 0..1 campania). */
+/**
+ * Capa de datos de campania (proforma 1 - 0..1 campania).
+ * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total.
+ */
 public class DCampania {
 
     private static final String SELECT =
-            "SELECT c.id_campania, c.nombre, to_char(c.fecha_inicio, 'DD/MM/YYYY'), to_char(c.fecha_fin, 'DD/MM/YYYY'),"
-            + " c.estado, p.nro_proforma, e.razon_social, p.total"
+            "SELECT c.id_campania, c.nombre, c.fecha_inicio, c.fecha_fin, c.estado, p.nro_proforma, e.razon_social, p.total"
             + " FROM campania c"
             + " JOIN proforma p ON p.id_proforma = c.id_proforma"
             + " LEFT JOIN empresa_anunciante e ON e.id_empresa = p.id_empresa";

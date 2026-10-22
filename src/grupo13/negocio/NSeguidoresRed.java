@@ -1,54 +1,50 @@
 package grupo13.negocio;
 
-import grupo13.comandos.ComandoException;
-import grupo13.comandos.Respuesta;
 import grupo13.datos.DRedSocial;
 import grupo13.datos.DSeguidoresRed;
-import grupo13.util.Html;
 
 import java.sql.SQLException;
 import java.util.List;
 
 /**
- * CU2 / RF03: registro y consulta del histórico de seguidores de redes sociales oficiales.
+ * CU2 / RF03: histórico de seguidores de redes sociales oficiales.
+ * Fila: id_seguidores, red_social, fecha, seguidores.
  */
 public class NSeguidoresRed {
-
-    private static final String[] TITULOS = {"ID", "Red Social", "Fecha de Medición", "Seguidores"};
 
     private final DSeguidoresRed datos = new DSeguidoresRed();
     private final DRedSocial redSocial = new DRedSocial();
 
-    /** lisSeg["id_canal"]: historial de mediciones de seguidores de una red social */
-    public Respuesta listar(List<String> p) throws SQLException, ComandoException {
-        int idCanal = Validar.id(p.get(0), "id_canal");
-        if (redSocial.estaActivo(idCanal) == null) {
-            throw new ComandoException("No existe una red social con ID " + idCanal + ".");
+    /** Historial de mediciones de una red social (la más reciente primero). */
+    public List<String[]> listar(String idCanal) throws NegocioException {
+        try {
+            int id = Validar.id(idCanal, "id_canal");
+            if (redSocial.estaActivo(id) == null) {
+                throw new NegocioException("No existe una red social con ID " + id + ".");
+            }
+            return datos.listarPorCanal(id);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        List<String[]> filas = datos.listarPorCanal(idCanal);
-        return Respuesta.exito("Historial de Seguidores - Red Social " + idCanal,
-                Html.pagina("Historial de Seguidores - Red Social " + idCanal, Html.tabla(TITULOS, filas)));
     }
 
-    /** insSeg["id_canal","seguidores"]: registra una medición de seguidores para la fecha actual */
-    public Respuesta insertar(List<String> p) throws Exception {
-        int idCanal = Validar.id(p.get(0), "id_canal");
-        int seguidores = Validar.enteroNoNegativo(p.get(1), "seguidores");
-
-        Boolean activo = redSocial.estaActivo(idCanal);
-        if (activo == null) {
-            throw new ComandoException("No existe una red social con ID " + idCanal + ".");
+    /** Registra la medición de hoy; devuelve la fila registrada. La red debe estar activa. */
+    public String[] insertar(String idCanal, String seguidores) throws NegocioException {
+        try {
+            int id = Validar.id(idCanal, "id_canal");
+            int cantidad = Validar.enteroNoNegativo(seguidores, "seguidores");
+            Boolean activo = redSocial.estaActivo(id);
+            if (activo == null) {
+                throw new NegocioException("No existe una red social con ID " + id + ".");
+            }
+            if (!activo) {
+                throw new NegocioException("La red social " + id
+                        + " está inactiva. Reactívela antes de registrar métricas de seguidores.");
+            }
+            datos.insertar(id, cantidad);
+            return datos.obtenerUltimo(id);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        if (!activo) {
-            throw new ComandoException("La red social " + idCanal + " está inactiva. Reactívela con actRed[\""
-                    + idCanal + "\"] antes de registrar métricas de seguidores.");
-        }
-
-        datos.insertar(idCanal, seguidores);
-        String[] ultimo = datos.obtenerUltimo(idCanal);
-        String mensaje = "Se registró el conteo de " + seguidores + " seguidores para la red social " + idCanal + ".";
-        String html = Html.pagina(mensaje,
-                "<p>" + Html.esc(mensaje) + "</p>" + Html.tabla(TITULOS, List.<String[]>of(ultimo)));
-        return Respuesta.exito(mensaje, html);
     }
 }

@@ -114,6 +114,20 @@ public final class Conexion {
         return Integer.parseInt(valor(sql, params));
     }
 
+    /** Los textos vacíos se guardan como NULL. */
+    public static String nulo(String v) {
+        return v == null || v.isEmpty() ? null : v;
+    }
+
+    /** Primera columna de cada fila como entero (listas de IDs). */
+    public static List<Integer> ids(String sql, Object... params) throws SQLException {
+        List<Integer> ids = new ArrayList<>();
+        for (String[] f : consultar(sql, params)) {
+            ids.add(Integer.parseInt(f[0]));
+        }
+        return ids;
+    }
+
     /** Los null se envían como NULL; LocalDate, BigDecimal, Integer y String se pasan con setObject. */
     private static PreparedStatement preparar(Connection c, String sql, Object... params) throws SQLException {
         PreparedStatement ps = c.prepareStatement(sql);

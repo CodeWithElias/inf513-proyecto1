@@ -1,11 +1,11 @@
 package grupo13;
 
-import grupo13.comandos.Despachador;
-import grupo13.comandos.Respuesta;
+import grupo13.presentacion.comandos.Despachador;
+import grupo13.presentacion.comandos.Respuesta;
 import grupo13.config.Config;
-import grupo13.mail.ClientePOP3;
-import grupo13.mail.ClienteSMTP;
-import grupo13.mail.Correo;
+import grupo13.presentacion.correo.ClientePOP3;
+import grupo13.presentacion.correo.ClienteSMTP;
+import grupo13.presentacion.correo.Correo;
 
 import java.io.IOException;
 import java.io.PrintStream;

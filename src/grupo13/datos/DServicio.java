@@ -3,11 +3,14 @@ package grupo13.datos;
 import java.sql.SQLException;
 import java.util.List;
 
-/** Capa de datos de servicio_publicitario (spot TV, mención en vivo, cintillo, publicación en redes…). */
+/**
+ * Capa de datos de servicio_publicitario.
+ * Fila: id_servicio, nombre, tipo, descripcion, activo, tarifas_activas.
+ */
 public class DServicio {
 
     private static final String SELECT =
-            "SELECT s.id_servicio, s.nombre, s.tipo, s.descripcion, CASE WHEN s.activo THEN 'Sí' ELSE 'No' END,"
+            "SELECT s.id_servicio, s.nombre, s.tipo, s.descripcion, s.activo,"
             + " (SELECT count(*) FROM tarifa t WHERE t.id_servicio = s.id_servicio AND t.activo) AS tarifas_activas"
             + " FROM servicio_publicitario s";
 
@@ -35,12 +38,12 @@ public class DServicio {
 
     public int insertar(String nombre, String tipo, String descripcion) throws SQLException {
         return Conexion.insertar("INSERT INTO servicio_publicitario (nombre, tipo, descripcion) VALUES (?, ?, ?)"
-                + " RETURNING id_servicio", nombre, nulo(tipo), nulo(descripcion));
+                + " RETURNING id_servicio", nombre, Conexion.nulo(tipo), Conexion.nulo(descripcion));
     }
 
     public int modificar(int id, String nombre, String tipo, String descripcion) throws SQLException {
         return Conexion.ejecutar("UPDATE servicio_publicitario SET nombre = ?, tipo = ?, descripcion = ? WHERE id_servicio = ?",
-                nombre, nulo(tipo), nulo(descripcion), id);
+                nombre, Conexion.nulo(tipo), Conexion.nulo(descripcion), id);
     }
 
     public int cambiarEstado(int id, boolean activo) throws SQLException {
@@ -49,9 +52,5 @@ public class DServicio {
 
     public int contarTarifasActivas(int id) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM tarifa WHERE id_servicio = ? AND activo", id);
-    }
-
-    private static String nulo(String v) {
-        return v == null || v.isEmpty() ? null : v;
     }
 }

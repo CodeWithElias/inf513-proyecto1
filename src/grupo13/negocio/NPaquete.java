@@ -1,137 +1,190 @@
 package grupo13.negocio;
 
-import grupo13.comandos.ComandoException;
-import grupo13.comandos.Respuesta;
 import grupo13.datos.DPaquete;
 import grupo13.datos.DTarifa;
-import grupo13.util.Html;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-/** CU3 / RF06: paquetes publicitarios (varias tarifas agrupadas con un descuento). */
+/**
+ * CU3 / RF06: paquetes publicitarios (varias tarifas agrupadas con un descuento %).
+ * Regla de precio: precio_total = Σ(monto × cantidad) × (1 − descuento / 100), redondeado a 2 decimales.
+ * Fila de paquete: id_paquete, nombre, descripcion, descuento, precio_total, items, activo.
+ * Fila de ítem (la que devuelve esta clase): id_tarifa, servicio, unidad, unidad_cobro, monto, cantidad, subtotal.
+ */
 public class NPaquete {
 
-    private static final String[] TITULOS = {"ID", "Nombre", "Descripción", "Descuento (%)", "Precio total (Bs)",
-            "Tarifas", "Activo"};
-    private static final String[] TITULOS_ITEM = {"ID tarifa", "Servicio", "Unidad", "Unidad de cobro",
-            "Monto (Bs)", "Cantidad", "Subtotal (Bs)"};
+    private static final BigDecimal CIEN = new BigDecimal("100");
 
     private final DPaquete datos = new DPaquete();
     private final DTarifa tarifa = new DTarifa();
 
-    /** lisPaq["*"] */
-    public Respuesta listar(List<String> p) throws SQLException {
-        String filtro = p.get(0).equals("*") ? null : p.get(0);
-        return Respuesta.exito("Listando los Paquetes",
-                Html.pagina("Paquetes Publicitarios", Html.tabla(TITULOS, datos.listar(filtro))));
-    }
-
-    /** mosPaq["id"]: el paquete con el detalle de sus tarifas. */
-    public Respuesta mostrar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        return Respuesta.exito("Paquete " + id, Html.pagina("Paquete " + id, detalle(id)));
-    }
-
-    /** insPaq["nombre","descripcion","descuento_%"] */
-    public Respuesta insertar(List<String> p) throws Exception {
-        String nombre = Validar.texto(p.get(0), "nombre", 150);
-        String descripcion = Validar.textoOpcional(p.get(1), "descripcion", 500);
-        BigDecimal descuento = p.get(2).isEmpty() ? BigDecimal.ZERO : Validar.porcentaje(p.get(2), "descuento");
-        int id = datos.insertar(nombre, descripcion, descuento);
-        return exito("El paquete fue registrado con ID " + id + ". Agregue tarifas con addPaq[\"" + id
-                + "\",\"id_tarifa\",\"cantidad\"].", id);
-    }
-
-    /** modPaq["id","nombre","descripcion","descuento_%"] */
-    public Respuesta modificar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        String nombre = Validar.texto(p.get(1), "nombre", 150);
-        String descripcion = Validar.textoOpcional(p.get(2), "descripcion", 500);
-        BigDecimal descuento = p.get(3).isEmpty() ? BigDecimal.ZERO : Validar.porcentaje(p.get(3), "descuento");
-        buscar(id);
-        datos.modificar(id, nombre, descripcion, descuento);
-        return exito("El paquete " + id + " fue modificado y su precio recalculado.", id);
-    }
-
-    /** addPaq["id_paquete","id_tarifa","cantidad"]: agrega la tarifa o actualiza su cantidad. */
-    public Respuesta agregarTarifa(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        int idTarifa = Validar.id(p.get(1), "id_tarifa");
-        int cantidad = Validar.id(p.get(2), "cantidad");
-        buscar(id);
-        Boolean tarifaActiva = tarifa.estaActivo(idTarifa);
-        if (tarifaActiva == null) {
-            throw new ComandoException("No existe la tarifa con ID " + idTarifa + ". Consulte lisTar[\"*\"].");
+    public List<String[]> listar(String filtro) throws NegocioException {
+        try {
+            return datos.listar(filtro);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        if (!tarifaActiva) {
-            throw new ComandoException("La tarifa con ID " + idTarifa + " está deshabilitada.");
+    }
+
+    public String[] obtener(String idPaquete) throws NegocioException {
+        try {
+            return buscar(Validar.id(idPaquete, "id_paquete"));
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        boolean yaEstaba = datos.contieneTarifa(id, idTarifa);
-        datos.agregarItem(id, idTarifa, cantidad);
-        return exitoDetalle((yaEstaba ? "Se actualizó la cantidad de la tarifa " : "Se agregó la tarifa ")
-                + idTarifa + " al paquete " + id + ".", id);
     }
 
-    /** quiPaq["id_paquete","id_tarifa"] */
-    public Respuesta quitarTarifa(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        int idTarifa = Validar.id(p.get(1), "id_tarifa");
-        buscar(id);
-        if (datos.quitarItem(id, idTarifa) == 0) {
-            throw new ComandoException("La tarifa " + idTarifa + " no forma parte del paquete " + id + ".");
+    /** Tarifas incluidas, con el subtotal (monto × cantidad) de cada una. */
+    public List<String[]> listarItems(String idPaquete) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            buscar(id);
+            List<String[]> filas = new ArrayList<>();
+            for (String[] item : datos.items(id)) {
+                String[] r = Arrays.copyOf(item, item.length + 1);
+                r[item.length] = subtotal(item).toPlainString();
+                filas.add(r);
+            }
+            return filas;
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        return exitoDetalle("Se quitó la tarifa " + idTarifa + " del paquete " + id + ".", id);
     }
 
-    /** eliPaq["id"]: baja lógica (ya no se puede cotizar). */
-    public Respuesta eliminar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        if (!estado(id)) {
-            throw new ComandoException("El paquete " + id + " ya está dado de baja.");
+    /** descuento en % (0 a 100; vacío = 0). */
+    public int insertar(String nombre, String descripcion, String descuento) throws NegocioException {
+        try {
+            String n = Validar.texto(nombre, "nombre", 150);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 500);
+            BigDecimal desc = descuento.isEmpty() ? BigDecimal.ZERO : Validar.porcentaje(descuento, "descuento");
+            return datos.insertar(n, d, desc);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        datos.cambiarEstado(id, false);
-        return exito("El paquete " + id + " fue dado de baja. Puede reactivarlo con actPaq[\"" + id + "\"].", id);
     }
 
-    /** actPaq["id"] */
-    public Respuesta activar(List<String> p) throws Exception {
-        int id = Validar.id(p.get(0), "id_paquete");
-        if (estado(id)) {
-            throw new ComandoException("El paquete " + id + " ya está activo.");
+    /** Recalcula el precio con el nuevo descuento. */
+    public void modificar(String idPaquete, String nombre, String descripcion, String descuento) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            String n = Validar.texto(nombre, "nombre", 150);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 500);
+            BigDecimal desc = descuento.isEmpty() ? BigDecimal.ZERO : Validar.porcentaje(descuento, "descuento");
+            buscar(id);
+            datos.modificar(id, n, d, desc, calcularPrecio(datos.items(id), desc));
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        datos.cambiarEstado(id, true);
-        return exito("El paquete " + id + " fue reactivado.", id);
     }
 
-    private String detalle(int id) throws Exception {
-        return Html.tabla(TITULOS, List.<String[]>of(buscar(id)))
-                + "<h3>Tarifas incluidas</h3>" + Html.tabla(TITULOS_ITEM, datos.items(id));
+    /** Agrega la tarifa (activa) o actualiza su cantidad. Devuelve true si ya estaba en el paquete. */
+    public boolean agregarTarifa(String idPaquete, String idTarifa, String cantidad) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            int idTar = Validar.id(idTarifa, "id_tarifa");
+            int cant = Validar.id(cantidad, "cantidad");
+            String[] paq = buscar(id);
+            String[] tar = tarifa.obtener(idTar);
+            if (tar == null) {
+                throw new NegocioException("No existe la tarifa con ID " + idTar + ". Consulte el tarifario.");
+            }
+            if (!"t".equals(tar[8])) {
+                throw new NegocioException("La tarifa con ID " + idTar + " está deshabilitada.");
+            }
+
+            List<String[]> items = datos.items(id);
+            boolean yaEstaba = false;
+            for (String[] item : items) {
+                if (Integer.parseInt(item[0]) == idTar) {
+                    item[5] = String.valueOf(cant);
+                    yaEstaba = true;
+                }
+            }
+            if (!yaEstaba) {
+                items.add(new String[]{String.valueOf(idTar), tar[1], tar[2], tar[4], tar[3], String.valueOf(cant)});
+            }
+            datos.agregarItem(id, idTar, cant, calcularPrecio(items, new BigDecimal(paq[3])));
+            return yaEstaba;
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
     }
 
-    private String[] buscar(int id) throws Exception {
+    public void quitarTarifa(String idPaquete, String idTarifa) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            int idTar = Validar.id(idTarifa, "id_tarifa");
+            String[] paq = buscar(id);
+            List<String[]> items = datos.items(id);
+            boolean quitada = items.removeIf(item -> Integer.parseInt(item[0]) == idTar);
+            if (!quitada) {
+                throw new NegocioException("La tarifa " + idTar + " no forma parte del paquete " + id + ".");
+            }
+            datos.quitarItem(id, idTar, calcularPrecio(items, new BigDecimal(paq[3])));
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    /** Baja lógica (ya no se puede cotizar). */
+    public void eliminar(String idPaquete) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            if (!estado(id)) {
+                throw new NegocioException("El paquete " + id + " ya está dado de baja.");
+            }
+            datos.cambiarEstado(id, false);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    public void activar(String idPaquete) throws NegocioException {
+        try {
+            int id = Validar.id(idPaquete, "id_paquete");
+            if (estado(id)) {
+                throw new NegocioException("El paquete " + id + " ya está activo.");
+            }
+            datos.cambiarEstado(id, true);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    // ===== Reglas de cálculo (usadas también por NTarifa) =====
+
+    /** items: filas con monto en [4] y cantidad en [5]. */
+    static BigDecimal calcularPrecio(List<String[]> items, BigDecimal descuentoPorcentaje) {
+        BigDecimal suma = BigDecimal.ZERO;
+        for (String[] item : items) {
+            suma = suma.add(subtotal(item));
+        }
+        BigDecimal factor = BigDecimal.ONE.subtract(descuentoPorcentaje.divide(CIEN));
+        return suma.multiply(factor).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static BigDecimal subtotal(String[] item) {
+        return new BigDecimal(item[4]).multiply(new BigDecimal(item[5]));
+    }
+
+    private String[] buscar(int id) throws SQLException, NegocioException {
         String[] fila = datos.obtener(id);
         if (fila == null) {
-            throw new ComandoException("No existe un paquete con ID " + id + ".");
+            throw new NegocioException("No existe un paquete con ID " + id + ".");
         }
         return fila;
     }
 
-    private boolean estado(int id) throws Exception {
+    private boolean estado(int id) throws SQLException, NegocioException {
         Boolean activo = datos.estaActivo(id);
         if (activo == null) {
-            throw new ComandoException("No existe un paquete con ID " + id + ".");
+            throw new NegocioException("No existe un paquete con ID " + id + ".");
         }
         return activo;
-    }
-
-    private Respuesta exito(String mensaje, int id) throws Exception {
-        return Respuesta.exito("Éxito", Html.pagina("Éxito",
-                "<p>" + Html.esc(mensaje) + "</p>" + Html.tabla(TITULOS, List.<String[]>of(buscar(id)))));
-    }
-
-    private Respuesta exitoDetalle(String mensaje, int id) throws Exception {
-        return Respuesta.exito("Éxito", Html.pagina("Éxito", "<p>" + Html.esc(mensaje) + "</p>" + detalle(id)));
     }
 }

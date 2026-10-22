@@ -3,11 +3,14 @@ package grupo13.datos;
 import java.sql.SQLException;
 import java.util.List;
 
-/** Capa de datos de visitante (persona no registrada que pide una cotización, RF07). */
+/**
+ * Capa de datos de visitante (persona no registrada que pide una cotización).
+ * Fila: id_visitante, nombre, email, telefono, fecha_registro, proformas.
+ */
 public class DVisitante {
 
     private static final String SELECT =
-            "SELECT v.id_visitante, v.nombre, v.email, v.telefono, to_char(v.fecha_registro, 'DD/MM/YYYY'),"
+            "SELECT v.id_visitante, v.nombre, v.email, v.telefono, v.fecha_registro,"
             + " (SELECT count(*) FROM proforma p WHERE p.id_visitante = v.id_visitante) AS proformas"
             + " FROM visitante v";
 
@@ -25,24 +28,20 @@ public class DVisitante {
 
     public int insertar(String nombre, String email, String telefono) throws SQLException {
         return Conexion.insertar("INSERT INTO visitante (nombre, email, telefono) VALUES (?, ?, ?) RETURNING id_visitante",
-                nombre, nulo(email), nulo(telefono));
+                nombre, Conexion.nulo(email), Conexion.nulo(telefono));
     }
 
     public int modificar(int id, String nombre, String email, String telefono) throws SQLException {
         return Conexion.ejecutar("UPDATE visitante SET nombre = ?, email = ?, telefono = ? WHERE id_visitante = ?",
-                nombre, nulo(email), nulo(telefono), id);
+                nombre, Conexion.nulo(email), Conexion.nulo(telefono), id);
     }
 
-    /** Borrado físico (la tabla no tiene columna activo); solo si no tiene proformas. */
+    /** Borrado físico (la tabla no tiene columna activo). */
     public int eliminar(int id) throws SQLException {
         return Conexion.ejecutar("DELETE FROM visitante WHERE id_visitante = ?", id);
     }
 
     public int contarProformas(int id) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM proforma WHERE id_visitante = ?", id);
-    }
-
-    private static String nulo(String v) {
-        return v == null || v.isEmpty() ? null : v;
     }
 }
