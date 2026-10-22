@@ -6,6 +6,7 @@ import grupo13.config.Config;
 import grupo13.presentacion.correo.ClientePOP3;
 import grupo13.presentacion.correo.ClienteSMTP;
 import grupo13.presentacion.correo.Correo;
+import grupo13.presentacion.correo.Notificador;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -32,6 +33,7 @@ public class App {
         App app = new App();
 
         if (args.length >= 2 && args[0].equals("--probar")) {
+            Notificador.desactivar(); // en pruebas los avisos (RF11) se registran pero no se envían por correo
             String comando = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
             Respuesta r = app.despachador.procesar(comando);
             System.out.println("Asunto respuesta: " + r.getTitulo());

@@ -35,6 +35,12 @@ public class DCampania {
                 + " JOIN proforma p ON p.id_proforma = c.id_proforma WHERE c.id_campania = ?", id);
     }
 
+    /** {estado, id_proforma, fecha_inicio, fecha_fin, nombre} de la campaña, o null si no existe. */
+    public String[] datosParaPauta(int id) throws SQLException {
+        return Conexion.consultarUno("SELECT estado, id_proforma, fecha_inicio, fecha_fin, nombre FROM campania"
+                + " WHERE id_campania = ?", id);
+    }
+
     public int insertar(int idProforma, String nombre, LocalDate inicio, LocalDate fin) throws SQLException {
         return Conexion.insertar("INSERT INTO campania (id_proforma, nombre, fecha_inicio, fecha_fin) VALUES (?, ?, ?, ?)"
                 + " RETURNING id_campania", idProforma, nombre, inicio, fin);

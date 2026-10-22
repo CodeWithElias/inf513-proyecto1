@@ -79,7 +79,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ✅ **Completo**: carga por URL con validación técnica (formato por tipo, duración contratada), revisión por Canal 11 (aprobar / rechazar / pedir corrección), versiones e historial |
-| **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `espacio_publicitario`, `programacion_pauta`, `notificacion` | ⚪ Pendiente |
+| **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `canal_difusion`, `espacio_publicitario`, `programacion_pauta`, `notificacion` | ✅ **Completo**: canales, calendario de espacios sin superposición, programación validada contra lo contratado, reprogramación/cancelación/publicación y avisos a la unidad (sistema + correo) |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ⚪ Pendiente |
 | **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ⚪ Pendiente |
 | **CU8** | Reportes y Estadísticas | RF13 | consultas agregadas sobre todas las tablas | ⚪ Pendiente |
@@ -182,7 +182,8 @@ proyecto-mail/
     │   │   ├── ClientePOP3.java   ← USER/PASS/STAT/RETR/DELE/QUIT; extrae From y Subject
     │   │   ├── ClienteSMTP.java   ← HELO/MAIL FROM/RCPT TO/DATA; cuerpo HTML en Base64
     │   │   ├── Correo.java        ← remitente + asunto
-    │   │   └── MimeUtil.java      ← decodifica asuntos =?UTF-8?B?...?=, extrae email del From
+    │   │   ├── MimeUtil.java      ← decodifica asuntos =?UTF-8?B?...?=, extrae email del From
+    │   │   └── Notificador.java   ← envía por correo los avisos del RF11 (desactivado en --probar)
     │   ├── comandos/
     │   │   ├── Comando.java       ← parser del asunto: nombre + lista de parámetros
     │   │   ├── Despachador.java   ← REGISTRO DE TODOS LOS COMANDOS (→ métodos P*) + help + errores
@@ -194,7 +195,8 @@ proyecto-mail/
     │   ├── PUsuario, PRol, PUnidad, PRepresentante            (CU1)
     │   ├── PPlataforma, PRedSocial, PSeguidoresRed            (CU2)
     │   ├── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
-    │   └── PMaterial                                                                  (CU4)
+    │   ├── PMaterial                                                                  (CU4)
+    │   └── PCanal, PEspacio, PPauta, PNotificacion                                    (CU5)
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
@@ -204,7 +206,9 @@ proyecto-mail/
     │   ├── NPlataforma, NRedSocial, NSeguidoresRed                                  (CU2)
     │   ├── NEmpresa, NVisitante, NServicio, NTarifa (vigencia), NPaquete (precio),
     │   │   NProforma (totales, número, estados, vencida), NCampania                 (CU3)
-    │   └── NMaterial (formatos por tipo, duración contratada, estados y revisiones) (CU4)
+    │   ├── NMaterial (formatos por tipo, duración contratada, estados y revisiones) (CU4)
+    │   ├── NCanal, NEspacio (superposición), NPauta (cupo contratado, compatibilidad,
+    │   │   destinatarios de avisos), NNotificacion, ResultadoPauta                  (CU5)
     │
     └── datos/                     ══════ CAPA DE DATOS ══════
         ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
@@ -212,7 +216,8 @@ proyecto-mail/
         ├── DUsuario, DRol, DUnidad (WITH RECURSIVE del subárbol), DRepresentante      (CU1)
         ├── DPlataforma, DRedSocial (canal_difusion + red_social), DSeguidoresRed       (CU2)
         ├── DEmpresa, DVisitante, DServicio, DTarifa, DPaquete, DProforma, DCampania    (CU3)
-        └── DMaterial (material_publicitario + revision_material)                       (CU4)
+        ├── DMaterial (material_publicitario + revision_material)                       (CU4)
+        └── DCanal, DEspacio, DPauta (pauta + espacio + avisos en transacción), DNotificacion (CU5)
 ```
 
 ---
@@ -412,6 +417,26 @@ documentación se escribe siempre en camelCase.
 | `recMat` | id_material, id_revisor, observaciones (**obligatorio**) — rechazo definitivo | `recMat["1","1","Contenido no permitido por la normativa"]` |
 | `corMat` | id_material, id_revisor, observaciones (**obligatorio**) — el cliente debe subir otra versión | `corMat["1","1","El audio está saturado, reduzca el volumen"]` |
 | `lisRev` | id_material — historial de revisiones | `lisRev["1"]` |
+| **CU5 · Canales de difusión** — tipos `television`, `radio`, `web` (las redes sociales del CU2 también son canales) | | |
+| `lisCan` | filtro — todos los canales con sus espacios disponibles | `lisCan["*"]` |
+| `insCan` | tipo, nombre (único) | `insCan["television","Canal 11 UAGRM TV"]` |
+| `eliCan` / `actCan` | id_canal — baja / alta; **baja rechazada con pautas programadas**; las redes sociales se administran con `eliRed`/`actRed` | `eliCan["3"]` |
+| **CU5 · Calendario de espacios** (RF10) — fechas `DD/MM/AAAA`, horas `HH:MM`; estados `disponible`, `ocupado`, `bloqueado` | | |
+| `lisEsp` | id_canal (`*` = todos), fecha (`*` = todas) — calendario con la campaña que ocupa cada espacio | `lisEsp["3","01/12/2026"]` |
+| `disEsp` | id_canal (`*`), fecha_desde, fecha_hasta (máx. 92 días) — solo espacios libres | `disEsp["*","01/12/2026","07/12/2026"]` |
+| `insEsp` | id_canal (activo), fecha (no pasada), hora_inicio, hora_fin — **no puede superponerse** con otro espacio del canal | `insEsp["3","01/12/2026","20:00","20:01"]` |
+| `genEsp` | id_canal, fecha_desde, fecha_hasta, hora_inicio, hora_fin — el mismo horario cada día (omite los días con superposición) | `genEsp["3","01/12/2026","31/12/2026","20:00","20:01"]` |
+| `eliEsp` / `actEsp` | id_espacio — bloquear (solo disponibles) / desbloquear | `eliEsp["5"]` |
+| **CU5 · Programación de pauta** (RF10) — estados `programada → publicada \| cancelada` | | |
+| `lisPau` | filtro (campaña, empresa, canal o estado) | `lisPau["programada"]` |
+| `mosPau` | id_programacion | `mosPau["1"]` |
+| `insPau` | id_detalle (ítem contratado de la proforma), id_material (**aprobado**), id_espacio (**disponible**), id_usuario (**personal de Canal 11**) | `insPau["1","1","5","1"]` |
+| `repPau` | id_programacion, id_espacio_nuevo — libera el espacio anterior | `repPau["1","6"]` |
+| `canPau` | id_programacion — cancela y libera el espacio (y el cupo contratado) | `canPau["1"]` |
+| `pubPau` | id_programacion, url_publicacion (**obligatoria en redes sociales**) — solo cuando ya llegó la hora | `pubPau["1","https://facebook.com/canal11uagrm/posts/123"]` |
+| **CU5 · Notificaciones** (RF11) | | |
+| `lisNot` | id_usuario — avisos recibidos (fecha, título, mensaje, leída) | `lisNot["4"]` |
+| `leeNot` | id_notificacion — marca como leída | `leeNot["1"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -438,6 +463,21 @@ documentación se escribe siempre en camelCase.
 
 Formatos aceptados por tipo (según la extensión de `nombre_archivo`): video `mp4 mov avi mkv` · audio `mp3 wav aac ogg` ·
 imagen/banner `jpg jpeg png gif webp` · texto `txt pdf docx` (si se omite el nombre se usa `publicacion.txt`).
+
+**Flujo típico CU5 (de material aprobado a pauta publicada):**
+1. Canales y calendario: `insCan["television","Canal 11 TV"]` → `genEsp["3","01/12/2026","31/12/2026","20:00","20:01"]`
+   (las redes sociales del CU2 ya son canales: solo se les crean espacios con `insEsp`/`genEsp`).
+2. Buscar lugar: `disEsp["*","01/12/2026","07/12/2026"]` y el ítem contratado con `mosPro["<id_proforma>"]` (columna *ID detalle*).
+3. Programar: `insPau["id_detalle","id_material","id_espacio","id_usuario_canal11"]`.
+4. **RF11:** si el canal es una red social, se registra una `notificacion` para su responsable (o, si no tiene, para los
+   usuarios activos de su unidad) y se le envía por correo. La respuesta indica a quién se avisó y si el correo salió.
+5. Cambios: `repPau` (otro espacio, avisa al canal anterior y al nuevo) o `canPau` (libera espacio y cupo).
+6. Emitida la pauta: `pubPau["id","url"]`. Los encargados revisan sus avisos con `lisNot["id_usuario"]` / `leeNot["id"]`.
+
+Reglas de `insPau`/`repPau`: campaña **activa**; espacio dentro de las fechas de la campaña y en el futuro; no exceder lo
+contratado (cantidad del ítem, o cantidad × tarifas del paquete); el canal debe aceptar el tipo de material
+(TV: video/texto/banner · radio: audio/texto · web y redes: video/imagen/banner/texto); si la tarifa es de una unidad,
+el canal debe ser una red social de esa unidad.
 
 ---
 
@@ -591,7 +631,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | **CU2** ✅ | Implementado (ver sección 6). | `canal_difusion` + `red_social` en transacción; bajas lógicas y seguidores. |
 | **CU3** ✅ | Implementado (ver sección 6). | Totales y precios se recalculan en SQL dentro de transacciones; cada ítem de proforma congela su precio unitario. |
 | **CU4** ✅ | Implementado (ver sección 6). | Material por URL; la duración máxima sale de las tarifas contratadas (directas y de paquetes); cada revisión queda en `revision_material`. |
-| **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
+| **CU5** ✅ | Implementado (ver sección 6). | La notificación se guarda en la misma transacción que la pauta; el correo lo envía la presentación (`Notificador`) y si falla el aviso igual queda en el sistema. |
 | **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |
 | **CU7** | `insMet`, `lisMet` (por programación) · `resMet` (resumen por campaña) | Métricas ingresadas por comando o importadas; agregaciones con `SUM`/`AVG` en SQL. |
 | **CU8** | `repIng` (ingresos por proformas/periodo) · `repCam` (campañas por estado) · `repMat` (material aprobado/rechazado) · `repPau` (pautas por canal) · `repMet` (impacto) · `repPag` (páginas detectadas) | Reportes = consultas agregadas → tablas HTML. Parámetros típicos: fecha_inicio, fecha_fin (`DD/MM/YYYY`). |
@@ -683,6 +723,7 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 | Contraseña en el asunto | `insUsu` lleva la contraseña en texto plano en el asunto del correo. | Aceptado para el alcance académico; en la BD se guarda hasheada. |
 | Spam | Gmail puede mandar las respuestas a *Spam* (el servidor no firma DKIM/SPF). | Revisar la carpeta Spam y marcar "No es spam". |
 | Puerto 25 | Algunas redes/ISP bloquean el puerto 25 de salida. | Probar desde la red de la facultad o con otra conexión. |
+| Avisos del RF11 por correo | Se envían con el mismo SMTP; desde redes no autorizadas fallan (relay denegado), pero el aviso queda en `notificacion` y la respuesta lo indica. En `--probar` no se envían. | Ejecutar desde la red de la facultad o en el servidor. |
 | Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde (queda en el log). | Revisar la consola. |
 | Datos compartidos | Todos usan la misma `db_grupo13sa`. | Usar datos de prueba identificables y borrarlos al terminar. |
 | Archivos (CU4) | El material se registra por URL (el esquema no tiene dónde guardar el archivo); no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |

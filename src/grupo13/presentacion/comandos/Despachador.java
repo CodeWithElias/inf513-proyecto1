@@ -3,9 +3,13 @@ package grupo13.presentacion.comandos;
 import grupo13.negocio.NegocioException;
 import grupo13.presentacion.Html;
 import grupo13.presentacion.PCampania;
+import grupo13.presentacion.PCanal;
 import grupo13.presentacion.PEmpresa;
+import grupo13.presentacion.PEspacio;
 import grupo13.presentacion.PMaterial;
+import grupo13.presentacion.PNotificacion;
 import grupo13.presentacion.PPaquete;
+import grupo13.presentacion.PPauta;
 import grupo13.presentacion.PPlataforma;
 import grupo13.presentacion.PProforma;
 import grupo13.presentacion.PRedSocial;
@@ -303,6 +307,63 @@ public class Despachador {
                 "modCam[\"1\",\"Campaña Navidad 2026\",\"01/12/2026\",\"31/12/2026\",\"pausada\"]", campania::modificar);
 
         registrarCu4();
+        registrarCu5();
+    }
+
+    /** CU5: Gestión de Programar Pauta Multi-Canal (RF10 y RF11). */
+    private void registrarCu5() {
+        PCanal canal = new PCanal();
+        PEspacio espacio = new PEspacio();
+        PPauta pauta = new PPauta();
+        PNotificacion notificacion = new PNotificacion();
+
+        grupo("CU5: Canales de difusión (las redes sociales se registran en el CU2)");
+        registrar("lisCan", "Lista los canales (TV, radio, web y redes sociales)",
+                new String[]{"filtro"}, "lisCan[\"*\"]", canal::listar);
+        registrar("insCan", "Registra un canal (tipo: television, radio o web)",
+                new String[]{"tipo", "nombre"}, "insCan[\"television\",\"Canal 11 UAGRM TV\"]", canal::insertar);
+        registrar("eliCan", "Da de baja un canal (sin pautas programadas)",
+                new String[]{"id_canal"}, "eliCan[\"1\"]", canal::eliminar);
+        registrar("actCan", "Reactiva un canal",
+                new String[]{"id_canal"}, "actCan[\"1\"]", canal::activar);
+
+        grupo("CU5: Calendario de espacios (RF10) - fechas DD/MM/AAAA, horas HH:MM");
+        registrar("lisEsp", "Calendario de espacios (\"*\" = todos los canales / todas las fechas)",
+                new String[]{"id_canal", "fecha"}, "lisEsp[\"1\",\"01/12/2026\"]", espacio::listar);
+        registrar("disEsp", "Espacios disponibles en un rango (máximo 92 días)",
+                new String[]{"id_canal", "fecha_desde", "fecha_hasta"}, "disEsp[\"*\",\"01/12/2026\",\"07/12/2026\"]",
+                espacio::disponibles);
+        registrar("insEsp", "Crea un espacio en el calendario de un canal",
+                new String[]{"id_canal", "fecha", "hora_inicio", "hora_fin"}, "insEsp[\"1\",\"01/12/2026\",\"20:00\",\"20:01\"]",
+                espacio::insertar);
+        registrar("genEsp", "Crea el mismo espacio todos los días de un rango (omite superposiciones)",
+                new String[]{"id_canal", "fecha_desde", "fecha_hasta", "hora_inicio", "hora_fin"},
+                "genEsp[\"1\",\"01/12/2026\",\"31/12/2026\",\"20:00\",\"20:01\"]", espacio::generar);
+        registrar("eliEsp", "Bloquea un espacio disponible",
+                new String[]{"id_espacio"}, "eliEsp[\"1\"]", espacio::bloquear);
+        registrar("actEsp", "Desbloquea un espacio",
+                new String[]{"id_espacio"}, "actEsp[\"1\"]", espacio::desbloquear);
+
+        grupo("CU5: Programación de pauta (RF10) y notificación a unidades (RF11)");
+        registrar("lisPau", "Lista la pauta (busca por campaña, empresa, canal o estado)",
+                new String[]{"filtro"}, "lisPau[\"programada\"]", pauta::listar);
+        registrar("mosPau", "Muestra una pauta",
+                new String[]{"id_programacion"}, "mosPau[\"1\"]", pauta::mostrar);
+        registrar("insPau", "Programa material aprobado en un espacio libre, con cargo a un ítem contratado",
+                PPauta.PARAMS_PROGRAMAR, "insPau[\"1\",\"1\",\"1\",\"1\"]", pauta::programar);
+        registrar("repPau", "Mueve una pauta programada a otro espacio libre",
+                new String[]{"id_programacion", "id_espacio_nuevo"}, "repPau[\"1\",\"2\"]", pauta::reprogramar);
+        registrar("canPau", "Cancela una pauta programada y libera su espacio",
+                new String[]{"id_programacion"}, "canPau[\"1\"]", pauta::cancelar);
+        registrar("pubPau", "Marca la pauta como publicada (URL obligatoria en redes sociales)",
+                new String[]{"id_programacion", "url_publicacion"},
+                "pubPau[\"1\",\"https://facebook.com/canal11uagrm/posts/123\"]", pauta::publicar);
+
+        grupo("CU5: Notificaciones (RF11)");
+        registrar("lisNot", "Lista las notificaciones de un usuario",
+                new String[]{"id_usuario"}, "lisNot[\"1\"]", notificacion::listar);
+        registrar("leeNot", "Marca una notificación como leída",
+                new String[]{"id_notificacion"}, "leeNot[\"1\"]", notificacion::marcarLeida);
     }
 
     /** CU4: Gestión de Cargas, Validar Material Publicitario (RF08 y RF09). */

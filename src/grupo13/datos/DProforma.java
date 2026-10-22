@@ -51,6 +51,16 @@ public class DProforma {
                 + " WHERE d.id_proforma = ? ORDER BY d.id_detalle", id);
     }
 
+    /**
+     * Datos de un ítem para programar pautas:
+     * {id_proforma, cantidad, id_tarifa, id_paquete, id_unidad_de_la_tarifa, tarifas_en_el_paquete (Σ cantidades)}.
+     */
+    public String[] detalleParaPauta(int idDetalle) throws SQLException {
+        return Conexion.consultarUno("SELECT d.id_proforma, d.cantidad, d.id_tarifa, d.id_paquete, t.id_unidad,"
+                + " (SELECT COALESCE(sum(i.cantidad), 0) FROM paquete_item i WHERE i.id_paquete = d.id_paquete)"
+                + " FROM detalle_proforma d LEFT JOIN tarifa t ON t.id_tarifa = d.id_tarifa WHERE d.id_detalle = ?", idDetalle);
+    }
+
     /** Fila del detalle: id_proforma, subtotal; o null si no existe. */
     public String[] obtenerDetalle(int idDetalle) throws SQLException {
         return Conexion.consultarUno("SELECT id_proforma, subtotal FROM detalle_proforma WHERE id_detalle = ?", idDetalle);

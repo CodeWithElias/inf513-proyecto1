@@ -6,11 +6,12 @@ import java.util.regex.Pattern;
 
 /**
  * Genera el HTML de los correos de respuesta y da formato a los valores que entrega la capa de negocio
- * (booleanos t/f → Sí/No, fechas ISO → DD/MM/AAAA, NULL → "-").
+ * (booleanos t/f → Sí/No, fechas ISO → DD/MM/AAAA, horas HH:MM:SS → HH:MM, NULL → "-").
  */
 public final class Html {
 
     private static final Pattern FECHA = Pattern.compile("^(\\d{4})-(\\d{2})-(\\d{2})$");
+    private static final Pattern HORA = Pattern.compile("^(\\d{2}):(\\d{2}):\\d{2}$");
     private static final Pattern FECHA_HORA = Pattern.compile("^(\\d{4})-(\\d{2})-(\\d{2}) (\\d{2}):(\\d{2})(:\\d{2}(\\.\\d+)?)?$");
 
     private Html() {
@@ -37,6 +38,10 @@ public final class Html {
         Matcher m = FECHA.matcher(v);
         if (m.matches()) {
             return m.group(3) + "/" + m.group(2) + "/" + m.group(1);
+        }
+        m = HORA.matcher(v);
+        if (m.matches()) {
+            return m.group(1) + ":" + m.group(2);
         }
         m = FECHA_HORA.matcher(v);
         if (m.matches()) {

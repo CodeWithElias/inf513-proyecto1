@@ -36,6 +36,12 @@ public class DUsuario {
         return Conexion.estaActivo("usuario", "id_usuario", id);
     }
 
+    /** Usuarios activos asignados a una unidad. Fila: id_usuario, nombre_completo, email. */
+    public List<String[]> activosDeUnidad(int idUnidad) throws SQLException {
+        return Conexion.consultar("SELECT id_usuario, nombre_completo, email FROM usuario WHERE id_unidad = ? AND activo"
+                + " ORDER BY id_usuario", idUnidad);
+    }
+
     /** ¿Otro usuario (distinto de excluirId) ya usa este email? */
     public boolean emailEnUso(String email, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM usuario WHERE lower(email) = lower(?) AND id_usuario <> ?",

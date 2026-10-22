@@ -2,6 +2,7 @@ package grupo13.negocio;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
@@ -155,5 +156,14 @@ public final class Validar {
     /** Email opcional ("" = sin email). */
     public static String emailOpcional(String valor) throws NegocioException {
         return valor.isEmpty() ? "" : email(valor);
+    }
+
+    /** Hora en formato HH:MM (24 h). */
+    public static LocalTime hora(String valor, String campo) throws NegocioException {
+        if (!valor.matches("([01]\\d|2[0-3]):[0-5]\\d")) {
+            throw new NegocioException("El campo " + campo + " debe ser una hora válida en formato HH:MM, 24 horas (recibido: '"
+                    + valor + "').");
+        }
+        return LocalTime.parse(valor);
     }
 }
