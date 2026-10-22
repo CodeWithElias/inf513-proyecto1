@@ -4,6 +4,7 @@ import grupo13.negocio.NegocioException;
 import grupo13.presentacion.Html;
 import grupo13.presentacion.PCampania;
 import grupo13.presentacion.PEmpresa;
+import grupo13.presentacion.PMaterial;
 import grupo13.presentacion.PPaquete;
 import grupo13.presentacion.PPlataforma;
 import grupo13.presentacion.PProforma;
@@ -300,6 +301,44 @@ public class Despachador {
         registrar("modCam", "Modifica una campaña (estado: activa, pausada, finalizada, cancelada)",
                 new String[]{"id_campania", "nombre", "fecha_inicio", "fecha_fin", "estado"},
                 "modCam[\"1\",\"Campaña Navidad 2026\",\"01/12/2026\",\"31/12/2026\",\"pausada\"]", campania::modificar);
+
+        registrarCu4();
+    }
+
+    /** CU4: Gestión de Cargas, Validar Material Publicitario (RF08 y RF09). */
+    private void registrarCu4() {
+        PMaterial material = new PMaterial();
+
+        grupo("CU4: Carga de material publicitario (RF08) - tipos: video, audio, imagen, banner, texto");
+        registrar("lisMat", "Lista el material (busca por archivo, tipo, estado, campaña o empresa)",
+                new String[]{"filtro"}, "lisMat[\"pendiente\"]", material::listar);
+        registrar("mosMat", "Muestra un material con su historial de revisiones",
+                new String[]{"id_material"}, "mosMat[\"1\"]", material::mostrar);
+        registrar("insMat", "El representante carga material a una campaña de su empresa (duración solo video/audio)",
+                PMaterial.PARAMS_INSERTAR,
+                "insMat[\"1\",\"3\",\"video\",\"spot_navidad.mp4\",\"https://drive.google.com/spot_navidad.mp4\",\"30\",\"\"]",
+                material::insertar);
+        registrar("modMat", "Corrige los datos de un material pendiente de revisión",
+                PMaterial.PARAMS_MODIFICAR,
+                "modMat[\"1\",\"video\",\"spot_navidad_v2.mp4\",\"https://drive.google.com/spot_navidad_v2.mp4\",\"30\",\"\"]",
+                material::modificar);
+        registrar("subMat", "Sube una nueva versión de un material al que se le pidieron correcciones",
+                PMaterial.PARAMS_VERSION,
+                "subMat[\"1\",\"spot_navidad_v2.mp4\",\"https://drive.google.com/spot_navidad_v2.mp4\",\"28\",\"\"]",
+                material::subirVersion);
+        registrar("eliMat", "Retira un material (si no está programado en una pauta)",
+                new String[]{"id_material"}, "eliMat[\"1\"]", material::eliminar);
+
+        grupo("CU4: Validación de material (RF09) - revisa personal de Canal 11");
+        registrar("aprMat", "Aprueba el material (observaciones opcionales)",
+                PMaterial.PARAMS_REVISION, "aprMat[\"1\",\"1\",\"Cumple los estándares técnicos\"]", material::aprobar);
+        registrar("recMat", "Rechaza el material (observaciones obligatorias)",
+                PMaterial.PARAMS_REVISION, "recMat[\"1\",\"1\",\"Contenido no permitido por la normativa\"]", material::rechazar);
+        registrar("corMat", "Solicita correcciones al cliente (observaciones obligatorias)",
+                PMaterial.PARAMS_REVISION, "corMat[\"1\",\"1\",\"El audio está saturado, reduzca el volumen\"]",
+                material::solicitarCorreccion);
+        registrar("lisRev", "Lista el historial de revisiones de un material",
+                new String[]{"id_material"}, "lisRev[\"1\"]", material::listarRevisiones);
     }
 
     private void grupo(String nombre) {

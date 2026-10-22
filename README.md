@@ -78,7 +78,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
-| **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ⚪ Pendiente |
+| **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ✅ **Completo**: carga por URL con validación técnica (formato por tipo, duración contratada), revisión por Canal 11 (aprobar / rechazar / pedir corrección), versiones e historial |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `espacio_publicitario`, `programacion_pauta`, `notificacion` | ⚪ Pendiente |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ⚪ Pendiente |
 | **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ⚪ Pendiente |
@@ -193,7 +193,8 @@ proyecto-mail/
     │   ├── Vista.java             ← respuestas típicas (listado, registro, éxito) y filtro "*"
     │   ├── PUsuario, PRol, PUnidad, PRepresentante            (CU1)
     │   ├── PPlataforma, PRedSocial, PSeguidoresRed            (CU2)
-    │   └── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
+    │   ├── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
+    │   └── PMaterial                                                                  (CU4)
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
@@ -201,15 +202,17 @@ proyecto-mail/
     │   ├── Seguridad.java         ← hash de contraseñas PBKDF2-SHA256 con sal
     │   ├── NUsuario, NRol, NUnidad (evita ciclos), NRepresentante                   (CU1)
     │   ├── NPlataforma, NRedSocial, NSeguidoresRed                                  (CU2)
-    │   └── NEmpresa, NVisitante, NServicio, NTarifa (vigencia), NPaquete (precio),
-    │       NProforma (totales, número, estados, vencida), NCampania                 (CU3)
+    │   ├── NEmpresa, NVisitante, NServicio, NTarifa (vigencia), NPaquete (precio),
+    │   │   NProforma (totales, número, estados, vencida), NCampania                 (CU3)
+    │   └── NMaterial (formatos por tipo, duración contratada, estados y revisiones) (CU4)
     │
     └── datos/                     ══════ CAPA DE DATOS ══════
         ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
         │                            ids, estaActivo, contar, enTransaccion
         ├── DUsuario, DRol, DUnidad (WITH RECURSIVE del subárbol), DRepresentante      (CU1)
         ├── DPlataforma, DRedSocial (canal_difusion + red_social), DSeguidoresRed       (CU2)
-        └── DEmpresa, DVisitante, DServicio, DTarifa, DPaquete, DProforma, DCampania    (CU3)
+        ├── DEmpresa, DVisitante, DServicio, DTarifa, DPaquete, DProforma, DCampania    (CU3)
+        └── DMaterial (material_publicitario + revision_material)                       (CU4)
 ```
 
 ---
@@ -397,6 +400,18 @@ documentación se escribe siempre en camelCase.
 | `lisCam` | filtro | `lisCam["*"]` |
 | `genCam` | id_proforma (aprobada, **de empresa**, sin campaña), nombre, fecha_inicio, fecha_fin | `genCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026"]` |
 | `modCam` | id_campania, nombre, fecha_inicio, fecha_fin, estado (`activa`, `pausada`, `finalizada`, `cancelada`) | `modCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026","pausada"]` |
+| **CU4 · Carga de material** (RF08) — estados `pendiente → aprobado \| rechazado \| correccion`; `correccion → (nueva versión) pendiente`; cualquiera `→ retirado` | | |
+| `lisMat` | filtro (archivo, tipo, estado, campaña o empresa) | `lisMat["pendiente"]` |
+| `mosMat` | id_material — ficha, texto de la publicación e historial de revisiones | `mosMat["1"]` |
+| `insMat` | id_campania (activa o pausada), id_usuario (**representante de la empresa de la campaña**), tipo (`video`, `audio`, `imagen`, `banner`, `texto`), nombre_archivo (con extensión), url_archivo, duracion_seg (**solo** video/audio, ≤ duración contratada), texto_publicacion (obligatorio en `texto`) | `insMat["1","3","video","spot_navidad.mp4","https://drive.google.com/spot_navidad.mp4","30",""]` |
+| `modMat` | id_material + tipo, nombre_archivo, url_archivo, duracion_seg, texto_publicacion — solo **pendiente**, no cambia la versión | `modMat["1","video","spot_v2.mp4","https://drive.google.com/spot_v2.mp4","30",""]` |
+| `subMat` | id_material, nombre_archivo, url_archivo, duracion_seg, texto_publicacion — solo en **correccion**; versión + 1 y vuelve a pendiente | `subMat["1","spot_v2.mp4","https://drive.google.com/spot_v2.mp4","28",""]` |
+| `eliMat` | id_material — retira (baja lógica); **rechazado si está programado en una pauta** | `eliMat["1"]` |
+| **CU4 · Validación de material** (RF09) — revisa **personal de Canal 11** (usuario activo que no es representante); solo material **pendiente** | | |
+| `aprMat` | id_material, id_revisor, observaciones (opcional) | `aprMat["1","1","Cumple los estándares técnicos"]` |
+| `recMat` | id_material, id_revisor, observaciones (**obligatorio**) — rechazo definitivo | `recMat["1","1","Contenido no permitido por la normativa"]` |
+| `corMat` | id_material, id_revisor, observaciones (**obligatorio**) — el cliente debe subir otra versión | `corMat["1","1","El audio está saturado, reduzca el volumen"]` |
+| `lisRev` | id_material — historial de revisiones | `lisRev["1"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -411,6 +426,18 @@ documentación se escribe siempre en camelCase.
 3. Cliente: `insEmp[...]` (o `insVis[...]` si solo quiere cotizar).
 4. Cotización: `insPro["1","","15","0"]` → `addDet["1","1","","20","2 por día"]` / `addDet["1","","1","1","mensual"]` → `mosPro["1"]` (el correo de respuesta **es** la cotización descargable).
 5. Cierre: `aprPro["1"]` (o `recPro["1"]`) → `genCam["1","Campaña Navidad","01/12/2026","31/12/2026"]` → la campaña queda lista para CU4 (material) y CU5 (pauta).
+
+**Flujo típico CU4 (del archivo del cliente a material aprobado):**
+1. El cliente sube su archivo a un almacenamiento propio (Drive, Dropbox…) y registra el enlace:
+   `insMat["1","3","video","spot.mp4","https://drive.google.com/...","30",""]` → queda **pendiente**.
+2. Canal 11 revisa (`lisMat["pendiente"]`, `mosMat["1"]`) y decide:
+   - `aprMat["1","1",""]` → **aprobado** (listo para la pauta del CU5),
+   - `corMat["1","1","Motivo"]` → **correccion** → el cliente sube `subMat["1","spot_v2.mp4","https://...","28",""]` (versión 2, otra vez pendiente),
+   - `recMat["1","1","Motivo"]` → **rechazado** (definitivo).
+3. Cada decisión queda en el historial: `lisRev["1"]`.
+
+Formatos aceptados por tipo (según la extensión de `nombre_archivo`): video `mp4 mov avi mkv` · audio `mp3 wav aac ogg` ·
+imagen/banner `jpg jpeg png gif webp` · texto `txt pdf docx` (si se omite el nombre se usa `publicacion.txt`).
 
 ---
 
@@ -451,7 +478,8 @@ documentación se escribe siempre en camelCase.
 
 ## 8. Cómo agregar un comando (paso a paso)
 
-Ejemplo ilustrativo: **CU4 – Material publicitario** (`lisMat`). Siempre en este orden: **D → N → P → registrar**.
+Ejemplo ilustrativo y simplificado: **CU4 – Material publicitario** (`lisMat`). Siempre en este orden: **D → N → P → registrar**.
+> El CU4 ya está implementado: la versión completa está en `DMaterial`, `NMaterial` y `PMaterial` (úsela como referencia de un CU con estados, versiones y revisiones).
 
 **1. Datos** — `src/grupo13/datos/DMaterial.java` (SQL y filas crudas, nada más)
 ```java
@@ -562,7 +590,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | **CU1** ✅ | Implementado (ver sección 6). Opcional: control de permisos por rol según el remitente del correo. | Requiere decidir si se agrega una tabla de permisos al esquema. |
 | **CU2** ✅ | Implementado (ver sección 6). | `canal_difusion` + `red_social` en transacción; bajas lógicas y seguidores. |
 | **CU3** ✅ | Implementado (ver sección 6). | Totales y precios se recalculan en SQL dentro de transacciones; cada ítem de proforma congela su precio unitario. |
-| **CU4** | `insMat`, `lisMat`, `mosMat` · `aprMat`, `recMat`, `corMat` (aprobar / rechazar / pedir corrección) · `lisRev` | El archivo se referencia por URL (`url_archivo`); cada revisión inserta en `revision_material` y cambia `estado`. Opcional: leer adjuntos del correo. |
+| **CU4** ✅ | Implementado (ver sección 6). | Material por URL; la duración máxima sale de las tarifas contratadas (directas y de paquetes); cada revisión queda en `revision_material`. |
 | **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
 | **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |
 | **CU7** | `insMet`, `lisMet` (por programación) · `resMet` (resumen por campaña) | Métricas ingresadas por comando o importadas; agregaciones con `SUM`/`AVG` en SQL. |
@@ -657,7 +685,7 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 | Puerto 25 | Algunas redes/ISP bloquean el puerto 25 de salida. | Probar desde la red de la facultad o con otra conexión. |
 | Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde (queda en el log). | Revisar la consola. |
 | Datos compartidos | Todos usan la misma `db_grupo13sa`. | Usar datos de prueba identificables y borrarlos al terminar. |
-| Archivos (CU4) | El material se registra por URL; aún no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |
+| Archivos (CU4) | El material se registra por URL (el esquema no tiene dónde guardar el archivo); no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |
 | Scraping (CU6) | Las redes sociales bloquean bots y requieren login. | Usar búsquedas públicas/URLs conocidas con `HttpClient`; registrar errores en `ejecucion_scraping.mensaje_error`. |
 
 ---

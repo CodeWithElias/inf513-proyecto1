@@ -31,6 +31,12 @@ public class DRepresentante {
         return Conexion.consultarUno(SELECT + " WHERE r.id_usuario = ?", idUsuario);
     }
 
+    /** id_empresa del representante, o null si el usuario no es representante. */
+    public Integer empresaDe(int idUsuario) throws SQLException {
+        String v = Conexion.valor("SELECT id_empresa FROM representante WHERE id_usuario = ?", idUsuario);
+        return v == null ? null : Integer.parseInt(v);
+    }
+
     /** ¿Otro representante (distinto de excluirId) ya usa este CI? */
     public boolean ciEnUso(String ci, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM representante WHERE lower(ci) = lower(?) AND id_usuario <> ?",
