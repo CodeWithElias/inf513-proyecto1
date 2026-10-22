@@ -29,6 +29,12 @@ public class DCampania {
         return Conexion.consultarUno(SELECT + " WHERE c.id_campania = ?", id);
     }
 
+    /** {estado, id_empresa} de la campaña, o null si no existe. */
+    public String[] estadoYEmpresa(int id) throws SQLException {
+        return Conexion.consultarUno("SELECT c.estado, p.id_empresa FROM campania c"
+                + " JOIN proforma p ON p.id_proforma = c.id_proforma WHERE c.id_campania = ?", id);
+    }
+
     public int insertar(int idProforma, String nombre, LocalDate inicio, LocalDate fin) throws SQLException {
         return Conexion.insertar("INSERT INTO campania (id_proforma, nombre, fecha_inicio, fecha_fin) VALUES (?, ?, ?, ?)"
                 + " RETURNING id_campania", idProforma, nombre, inicio, fin);
