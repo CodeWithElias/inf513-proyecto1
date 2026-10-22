@@ -40,7 +40,7 @@ PostgreSQL y **responde por correo** con el resultado en HTML ("Éxito", un list
 | Única librería externa: **driver JDBC de PostgreSQL** | `lib/postgresql-42.7.4.jar`. Es un driver, no un framework. |
 | **Correo implementado a mano** | POP3 y SMTP se hablan directamente con `java.net.Socket` (RFC 1939 / RFC 5321). |
 | **Interfaz = asunto del correo** | Toda la funcionalidad se expone como comandos `nombre["p1","p2",...]`. |
-| **Respuesta = correo HTML** | Tablas y mensajes se generan como HTML (`util/Html.java`). |
+| **Respuesta = correo HTML** | Tablas y mensajes se generan como HTML (`presentacion/Html.java`). |
 | Servidores de la facultad | Correo, base de datos y web viven en `tecnoweb.org.bo` (ver sección 2). |
 
 ---
@@ -77,7 +77,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 |---|---|---|---|---|
 | **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
-| **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ⚪ Pendiente |
+| **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ⚪ Pendiente |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `espacio_publicitario`, `programacion_pauta`, `notificacion` | ⚪ Pendiente |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ⚪ Pendiente |
@@ -104,6 +104,9 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 
 ## 4. Arquitectura
 
+El proyecto aplica **estrictamente la arquitectura de 3 capas**: **Presentación → Negocio → Datos**.
+Cada capa solo conoce a la capa inmediatamente inferior; nunca al revés ni saltándose una.
+
 ### Vista general
 ```
  ┌────────────┐   correo (asunto = comando)   ┌───────────────────────────┐
@@ -112,67 +115,101 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
  └────────────┘   respuesta HTML               └───────────┬───────────────┘
                                                 POP3 :110  │  ▲ SMTP :25
                                                            ▼  │
- ┌─────────────────────────────────────────────────────────────────────────┐
- │                         App (bucle cada N segundos)                      │
- │                                                                          │
- │  mail/ClientePOP3 ──▶ comandos/Despachador ──▶ negocio/N*  ──▶ datos/D*  │──▶ PostgreSQL
- │        │                 │  Comando.parsear      (valida)     (SQL)      │   db_grupo13sa
- │        │                 ▼                                               │
- │        │            Respuesta (titulo + HTML con util/Html)              │
- │        └──────────────────────────────────▶ mail/ClienteSMTP ────────────│
- └─────────────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────── CAPA DE PRESENTACIÓN (grupo13.presentacion) ─────────────────────┐
+ │  App ─▶ correo/ClientePOP3 ─▶ comandos/Despachador ─▶ P* (PUsuario, PTarifa…) ─▶ Html     │
+ │          (lee el correo)      (parsea el asunto,      (arma columnas, mensajes,   (HTML)  │
+ │                                valida nº de params)    formato Sí/No y fechas)            │
+ │  correo/ClienteSMTP ◀──────────────── Respuesta (título + HTML) ◀────────────────────────│
+ └───────────────────────────────────────────┬──────────────────────────────────────────────┘
+                     parámetros (String)      │  ▲  filas (String[]), IDs / NegocioException
+                                              ▼  │
+ ┌──────────────────────────── CAPA DE NEGOCIO (grupo13.negocio) ───────────────────────────┐
+ │  N* (NUsuario, NTarifa, NProforma…) + Validar + Seguridad                                 │
+ │  valida datos, aplica reglas y hace los CÁLCULOS (precios, totales, vigencia, estados)    │
+ └───────────────────────────────────────────┬──────────────────────────────────────────────┘
+                     valores ya validados     │  ▲  filas crudas (t/f, fechas ISO, NULL) / SQLException
+                                              ▼  │
+ ┌───────────────────────────── CAPA DE DATOS (grupo13.datos) ──────────────────────────────┐
+ │  D* (DUsuario, DTarifa, DProforma…) + Conexion  —  solo SQL con PreparedStatement         │
+ └───────────────────────────────────────────┬──────────────────────────────────────────────┘
+                                              ▼
+                                   PostgreSQL db_grupo13sa
 ```
 
-### Capas
-El proyecto sigue una **arquitectura en capas** (similar a la de 3 capas que se usa en la materia):
-
-| Capa | Paquete | Responsabilidad | No debe… |
+### Responsabilidades y prohibiciones
+| Capa | Paquete | Hace | **Nunca** |
 |---|---|---|---|
-| **Presentación / transporte** | `mail`, `App` | Leer correos (POP3), enviar respuestas (SMTP), bucle principal. | conocer SQL ni reglas de negocio. |
-| **Comandos** | `comandos` | Interpretar el asunto, verificar que el comando exista y que el número de parámetros sea correcto, capturar errores y convertirlos en respuesta "Error". | validar datos de negocio. |
-| **Negocio** | `negocio` (`N*`) | Validar parámetros (tipos, longitudes, existencia de FKs, unicidad), aplicar reglas (baja lógica, hash de contraseña) y armar la `Respuesta`. | escribir SQL. |
-| **Datos** | `datos` (`D*`) | SQL con `PreparedStatement`. Una clase por tabla principal. | lanzar mensajes para el usuario ni generar HTML. |
-| **Utilidades** | `util`, `config` | HTML, seguridad (hash), configuración. | — |
+| **Presentación** | `grupo13.presentacion` (+ `correo`, `comandos`) y `App` | Leer/enviar correos; interpretar el asunto (`nombre["p1",...]`, `"*"` = todos); validar que el comando exista y la **cantidad** de parámetros; llamar a la clase `N*`; elegir títulos de columnas, mensajes de éxito y sugerencias de comandos; dar formato (`t/f → Sí/No`, fechas `DD/MM/AAAA`, `NULL → -`); generar el HTML; escapar todo con `Html.esc`. | Importar `grupo13.datos` o `java.sql`; validar reglas de negocio; calcular montos o estados. |
+| **Negocio** | `grupo13.negocio` | Validar cada dato (`Validar`); verificar existencia, unicidad y estado de registros relacionados; aplicar reglas (bajas lógicas, transiciones de estado, jerarquías sin ciclos); **calcular** (precio de paquete, subtotal/total de proforma, número `PRO-AAAA-NNNNN`, vigencia de tarifa, proforma vencida); hash de contraseñas; traducir `SQLException` a `NegocioException`. | Importar `grupo13.presentacion`; generar HTML; mencionar nombres de comandos en sus mensajes; escribir SQL. |
+| **Datos** | `grupo13.datos` | Ejecutar SQL con `PreparedStatement`; devolver filas **crudas**; agrupar en una transacción las escrituras que deben ser atómicas (guardando los valores que calculó negocio). | Importar `grupo13.negocio` o `grupo13.presentacion`; formatear (`to_char`, `'Sí'/'No'`, etiquetas); decidir reglas o cálculos. |
+| Transversal | `grupo13.config` | Leer `config.properties` (usado por datos y por presentación). | — |
+
+### Contratos entre capas
+- **Presentación → Negocio:** cada método `P*` recibe la lista de parámetros del comando y llama a un método `N*`
+  con **parámetros explícitos** (`negocio.insertar(nombre, email, telefono, ...)`). El filtro `"*"` se convierte en `null`
+  en la presentación (`Vista.filtro`), porque es parte del protocolo de comandos, no del negocio.
+- **Negocio → Presentación:** devuelve datos (`List<String[]>`, `String[]`, `int` con el ID generado, `boolean`)
+  o lanza **`NegocioException`** con un mensaje en texto plano. Nunca devuelve HTML ni `Respuesta`.
+- **Negocio → Datos:** llama a métodos `D*` con valores ya validados y tipados (`int`, `BigDecimal`, `LocalDate`…).
+  Si una operación toca varias tablas, negocio **calcula** los valores y datos los **guarda juntos en una transacción**
+  (p. ej. `DProforma.agregarDetalle(..., subtotal, total)` o `DTarifa.modificar(..., preciosPaquetes)`).
+- **Datos → Negocio:** filas crudas (`"t"`/`"f"`, fechas ISO `2026-10-19`, `null`) o `SQLException`.
+- Cada clase documenta en su Javadoc el **orden de columnas** de las filas que devuelve.
+
+### Verificación automática de la arquitectura
+Estos comandos deben **no imprimir nada**. Ejecútelos antes de cada commit:
+```bash
+grep -rn "import grupo13\.\(negocio\|presentacion\)" src/grupo13/datos          # datos no conoce capas superiores
+grep -rn "import grupo13\.presentacion\|Html" src/grupo13/negocio                # negocio no conoce presentación
+grep -rn "import grupo13\.datos\|import java\.sql" src/grupo13/presentacion src/grupo13/App.java   # presentación no conoce datos
+grep -rn "to_char\|'Sí'\|'No'" src/grupo13/datos                                 # datos no formatea
+```
 
 ### Estructura de carpetas
 ```
 proyecto-mail/
 ├── README.md
-├── config.properties          ← credenciales (NO se sube a Git)
-├── lib/postgresql-42.7.4.jar  ← único JAR externo
-├── sql/schema.sql             ← esquema completo (ya aplicado en db_grupo13sa)
-├── out/                       ← .class compilados (generado)
+├── config.properties              ← credenciales (NO se sube a Git)
+├── lib/postgresql-42.7.4.jar      ← único JAR externo
+├── sql/schema.sql                 ← esquema completo (ya aplicado en db_grupo13sa)
+├── out/                           ← .class compilados (generado)
 └── src/grupo13/
-    ├── App.java               ← main: bucle POP3 → procesar → SMTP; modo --probar
-    ├── config/Config.java     ← lee config.properties (con valores por defecto)
-    ├── mail/
-    │   ├── ClientePOP3.java   ← USER/PASS/STAT/RETR/DELE/QUIT; extrae From y Subject
-    │   ├── ClienteSMTP.java   ← HELO/MAIL FROM/RCPT TO/DATA; cuerpo HTML en Base64
-    │   ├── Correo.java        ← remitente + asunto
-    │   └── MimeUtil.java      ← decodifica asuntos =?UTF-8?B?...?=, extrae email del From
-    ├── comandos/
-    │   ├── Comando.java       ← parser del asunto: nombre + lista de parámetros
-    │   ├── Despachador.java   ← REGISTRO DE TODOS LOS COMANDOS + help + manejo de errores
-    │   ├── Accion.java        ← interfaz funcional: Respuesta ejecutar(List<String>)
-    │   ├── Respuesta.java     ← exito/error + título + HTML
-    │   └── ComandoException   ← error de validación con mensaje para el usuario
-    ├── negocio/
-    │   ├── NUsuario.java      ← CU1 usuarios: listar, mostrar, insertar, modificar, eliminar, activar
-    │   ├── NRol.java          ← CU1 roles: CRUD + baja/alta lógica
-    │   ├── NUnidad.java       ← CU1 unidades: CRUD jerárquico (evita ciclos) + baja/alta lógica
-    │   ├── NRepresentante.java← CU1 clientes: perfil de representante de un usuario
-    │   ├── NEmpresa.java      ← consulta de empresas (apoyo; el CRUD es del CU3)
-    │   └── Validar.java       ← validaciones reutilizables (id, texto, email, teléfono, ci, password)
-    ├── datos/
-    │   ├── Conexion.java      ← abre conexión JDBC; leerFilas(ResultSet)
-    │   ├── DUsuario.java
-    │   ├── DRol.java
-    │   ├── DUnidad.java       ← incluye consulta recursiva (WITH RECURSIVE) para la jerarquía
-    │   ├── DRepresentante.java
-    │   └── DEmpresa.java
-    └── util/
-        ├── Html.java          ← pagina(), tabla(), esc() (escapar HTML)
-        └── Seguridad.java     ← hash de contraseñas PBKDF2-SHA256 con sal
+    ├── App.java                   ← arranque: bucle POP3 → Despachador → SMTP; modo --probar
+    ├── config/Config.java         ← lee config.properties (transversal)
+    │
+    ├── presentacion/              ══════ CAPA DE PRESENTACIÓN ══════
+    │   ├── correo/
+    │   │   ├── ClientePOP3.java   ← USER/PASS/STAT/RETR/DELE/QUIT; extrae From y Subject
+    │   │   ├── ClienteSMTP.java   ← HELO/MAIL FROM/RCPT TO/DATA; cuerpo HTML en Base64
+    │   │   ├── Correo.java        ← remitente + asunto
+    │   │   └── MimeUtil.java      ← decodifica asuntos =?UTF-8?B?...?=, extrae email del From
+    │   ├── comandos/
+    │   │   ├── Comando.java       ← parser del asunto: nombre + lista de parámetros
+    │   │   ├── Despachador.java   ← REGISTRO DE TODOS LOS COMANDOS (→ métodos P*) + help + errores
+    │   │   ├── Accion.java        ← Respuesta ejecutar(List<String>) throws NegocioException
+    │   │   ├── Respuesta.java     ← exito/error + título + HTML
+    │   │   └── ComandoException   ← error del protocolo de comandos (formato, comando inexistente)
+    │   ├── Html.java              ← pagina, tabla, ficha, esc y formato (t/f, fechas ISO, NULL)
+    │   ├── Vista.java             ← respuestas típicas (listado, registro, éxito) y filtro "*"
+    │   ├── PUsuario, PRol, PUnidad, PRepresentante            (CU1)
+    │   ├── PPlataforma, PRedSocial, PSeguidoresRed            (CU2)
+    │   └── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
+    │
+    ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
+    │   ├── NegocioException.java  ← única excepción que ve la presentación
+    │   ├── Validar.java           ← validaciones (id, texto, email, teléfono, ci, nit, password, url, monto, %, fechas)
+    │   ├── Seguridad.java         ← hash de contraseñas PBKDF2-SHA256 con sal
+    │   ├── NUsuario, NRol, NUnidad (evita ciclos), NRepresentante                   (CU1)
+    │   ├── NPlataforma, NRedSocial, NSeguidoresRed                                  (CU2)
+    │   └── NEmpresa, NVisitante, NServicio, NTarifa (vigencia), NPaquete (precio),
+    │       NProforma (totales, número, estados, vencida), NCampania                 (CU3)
+    │
+    └── datos/                     ══════ CAPA DE DATOS ══════
+        ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
+        │                            ids, estaActivo, contar, enTransaccion
+        ├── DUsuario, DRol, DUnidad (WITH RECURSIVE del subárbol), DRepresentante      (CU1)
+        ├── DPlataforma, DRedSocial (canal_difusion + red_social), DSeguidoresRed       (CU2)
+        └── DEmpresa, DVisitante, DServicio, DTarifa, DPaquete, DProforma, DCampania    (CU3)
 ```
 
 ---
@@ -197,16 +234,25 @@ proyecto-mail/
 ```
 asunto "insUsu[\"Ana\",\"ana@x.com\",\"\",\"clave123\",\"1\",\"\"]"
    │
-   ▼ Comando.parsear ─────────── formato inválido ──────────────▶ Respuesta "Error"
+   │ ── PRESENTACIÓN ──────────────────────────────────────────────────────────────────────────
+   ▼ Comando.parsear ─────────── formato inválido ──────────────▶ ComandoException → "Error"
    │   nombre = insUsu, params = [Ana, ana@x.com, "", clave123, 1, ""]
    ▼ buscar en el registro (sin distinguir mayúsculas) ─ no existe ─▶ "Error: el comando no existe"
    ▼ ¿cantidad de parámetros correcta? ─────────── no ──────────────▶ "Error: requiere N parámetros + ejemplo"
-   ▼ NUsuario.insertar(params)
-   │   Validar.* (email válido, password ≥ 6, id_rol numérico...) ─ falla ─▶ ComandoException → "Error"
-   │   reglas: email único, rol existe y activo, unidad existe...      ─ falla ─▶ "Error"
-   ▼ DUsuario.insertar(...)  ──────────── SQLException ────────────▶ "Error en la base de datos: ..."
-   ▼
- Respuesta.exito("Éxito", HTML con el registro creado)
+   ▼ PUsuario.insertar(params)  →  negocio.insertar("Ana", "ana@x.com", "", "clave123", "1", "")
+   │
+   │ ── NEGOCIO ──────────────────────────────────────────────────────────────────────────────
+   ▼ NUsuario.insertar(...)
+   │   Validar.* (email válido, password ≥ 6, id_rol numérico...) ─ falla ─▶ NegocioException → "Error"
+   │   reglas: email único, rol existe y activo, unidad existe...      ─ falla ─▶ NegocioException → "Error"
+   │   Seguridad.hashPassword(password)
+   │
+   │ ── DATOS ────────────────────────────────────────────────────────────────────────────────
+   ▼ DUsuario.insertar(...) → id ─── SQLException ─▶ (negocio la traduce) NegocioException → "Error en la base de datos"
+   │
+   │ ── de vuelta en PRESENTACIÓN ─────────────────────────────────────────────────────────────
+   ▼ PUsuario: negocio.obtener(id) → fila cruda → Vista.exito("El usuario fue registrado...", COLUMNAS, fila)
+ Respuesta "Éxito" (HTML con la fila formateada: Sí/No, DD/MM/AAAA)
 ```
 
 ### Ejemplo de conversación
@@ -292,7 +338,6 @@ documentación se escribe siempre en camelCase.
 | `insRep` | id_usuario, ci, cargo, id_empresa — convierte un usuario **activo** existente en cliente | `insRep["3","4715292","Gerente comercial","1"]` |
 | `modRep` | id_usuario, ci, cargo, id_empresa | `modRep["3","4715292","Representante legal","1"]` |
 | `eliRep` | id_usuario — quita el perfil de cliente (borrado físico de `representante`; el usuario se mantiene) | `eliRep["3"]` |
-| `lisEmp` | filtro — empresas anunciantes (solo consulta, apoyo para `insRep`) | `lisEmp["*"]` |
 | **Plataformas de Redes Sociales** | | |
 | `lisPla` | filtro (`*` = todas; muestra conteo de redes activas) | `lisPla["*"]` |
 | `insPla` | nombre | `insPla["TikTok"]` |
@@ -306,13 +351,66 @@ documentación se escribe siempre en camelCase.
 | **Seguidores** | | |
 | `insSeg` | id_canal, seguidores — registra recuento para la fecha actual | `insSeg["1","15400"]` |
 | `lisSeg` | id_canal — historial de mediciones de seguidores | `lisSeg["1"]` |
+| **CU3 · Empresas anunciantes** (RF04) | | |
+| `lisEmp` | filtro (razón social, NIT o nombre comercial) | `lisEmp["*"]` |
+| `mosEmp` | id_empresa — la empresa y sus representantes | `mosEmp["1"]` |
+| `insEmp` | razon_social, nit (solo dígitos, único), nombre_comercial, direccion_facturacion, email_facturacion, telefono (los 4 últimos pueden ir `""`) | `insEmp["Importadora Santa Cruz SRL","1023456789","ImporSCZ","Av. Banzer 123","facturas@imporscz.com","33445566"]` |
+| `modEmp` | id_empresa + los 6 campos de `insEmp` | `modEmp["1","Importadora Santa Cruz SRL","1023456789","ImporSCZ","Av. Banzer 456","facturas@imporscz.com","33445566"]` |
+| `eliEmp` | id_empresa — baja lógica; **rechazada con proformas pendientes** | `eliEmp["1"]` |
+| `actEmp` | id_empresa — reactiva | `actEmp["1"]` |
+| **CU3 · Visitantes** (cotizan sin cuenta) | | |
+| `lisVis` | filtro | `lisVis["*"]` |
+| `insVis` | nombre, email, telefono (al menos uno de los dos contactos) | `insVis["María López","maria@gmail.com","70011223"]` |
+| `modVis` | id_visitante, nombre, email, telefono | `modVis["1","María López","maria.lopez@gmail.com","70011223"]` |
+| `eliVis` | id_visitante — borrado físico, **solo sin proformas** (la tabla no tiene `activo`) | `eliVis["1"]` |
+| **CU3 · Servicios publicitarios** (RF05) | | |
+| `lisSer` | filtro | `lisSer["*"]` |
+| `insSer` | nombre (único), tipo, descripcion | `insSer["Spot en pausa comercial","TV","Spot de 30 s en tanda comercial"]` |
+| `modSer` | id_servicio, nombre, tipo, descripcion | `modSer["1","Spot en pausa comercial","TV","Spot de 30 s en horario estelar"]` |
+| `eliSer` | id_servicio — baja lógica; **rechazada con tarifas activas** | `eliSer["1"]` |
+| `actSer` | id_servicio | `actSer["1"]` |
+| **CU3 · Tarifario** (RF05) — fechas `DD/MM/AAAA`, montos `150` / `150.50` / `150,50` | | |
+| `lisTar` | filtro (servicio, tipo, unidad o unidad de cobro); muestra si está **vigente hoy** | `lisTar["*"]` |
+| `mosTar` | id_tarifa | `mosTar["1"]` |
+| `insTar` | id_servicio, id_unidad (`""` = general), monto, unidad_cobro, duracion_seg, vigente_desde, vigente_hasta (los 5 últimos salvo monto pueden ir `""`) | `insTar["1","","350.00","por spot","30","01/01/2026","31/12/2026"]` |
+| `modTar` | id_tarifa + los 7 campos de `insTar` — **recalcula los paquetes** que la usan; las proformas emitidas no cambian | `modTar["1","1","","380.00","por spot","30","01/01/2026","31/12/2026"]` |
+| `eliTar` | id_tarifa — deshabilita; **rechazada si está en un paquete activo** | `eliTar["1"]` |
+| `actTar` | id_tarifa | `actTar["1"]` |
+| **CU3 · Paquetes** (RF06) — `precio_total = Σ(monto × cantidad) × (1 − descuento%/100)` | | |
+| `lisPaq` | filtro | `lisPaq["*"]` |
+| `mosPaq` | id_paquete — con el detalle de sus tarifas | `mosPaq["1"]` |
+| `insPaq` | nombre, descripcion, descuento (% 0–100; `""` = 0) | `insPaq["Paquete TV + Redes","Spots en TV y publicaciones en redes","10"]` |
+| `modPaq` | id_paquete, nombre, descripcion, descuento | `modPaq["1","Paquete TV + Redes","Combo mensual","15"]` |
+| `addPaq` | id_paquete, id_tarifa, cantidad — agrega o actualiza la cantidad (tarifa activa) | `addPaq["1","1","10"]` |
+| `quiPaq` | id_paquete, id_tarifa | `quiPaq["1","1"]` |
+| `eliPaq` / `actPaq` | id_paquete — baja / alta lógica | `eliPaq["1"]` |
+| **CU3 · Proformas y cotizaciones** (RF07) — estados `pendiente → aprobada \| rechazada` (`vencida` si pasó la validez) | | |
+| `lisPro` | filtro (número, estado, empresa, NIT o visitante) | `lisPro["pendiente"]` |
+| `mosPro` | id_proforma — **la cotización completa** (cabecera, ítems, subtotal, descuento, total) | `mosPro["1"]` |
+| `insPro` | id_empresa, id_visitante (**uno de los dos**), dias_validez (`""` = 15), descuento en Bs (`""` = 0) — genera `PRO-AAAA-NNNNN` | `insPro["1","","15","0"]` |
+| `modPro` | id_proforma, descuento (Bs), fecha_validez (no anterior a hoy) | `modPro["1","100","30/11/2026"]` |
+| `addDet` | id_proforma, id_tarifa, id_paquete (**uno de los dos**), cantidad, frecuencia — tarifa vigente o paquete activo con ítems; congela el precio unitario | `addDet["1","1","","20","2 por día"]` |
+| `quiDet` | id_detalle | `quiDet["1"]` |
+| `aprPro` | id_proforma — pendiente, vigente y con ítems | `aprPro["1"]` |
+| `recPro` | id_proforma | `recPro["1"]` |
+| **CU3 · Campañas** | | |
+| `lisCam` | filtro | `lisCam["*"]` |
+| `genCam` | id_proforma (aprobada, **de empresa**, sin campaña), nombre, fecha_inicio, fecha_fin | `genCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026"]` |
+| `modCam` | id_campania, nombre, fecha_inicio, fecha_fin, estado (`activa`, `pausada`, `finalizada`, `cancelada`) | `modCam["1","Campaña Navidad 2026","01/12/2026","31/12/2026","pausada"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
 2. `insUni["Facultad de Ciencias de la Computación","Facultad",""]` → `insUni["Ingeniería Informática","Carrera","1"]`.
 3. **Director:** `insUsu[..., id_rol_director, ""]`.
 4. **Encargado de Unidad:** `insUsu[..., id_rol_encargado, id_unidad]`.
-5. **Cliente:** `insUsu[..., id_rol_cliente, ""]` y luego `insRep[id_usuario, ci, cargo, id_empresa]` (la empresa debe existir; su registro es parte del CU3).
+5. **Cliente:** `insEmp[...]` (CU3), luego `insUsu[..., id_rol_cliente, ""]` y `insRep[id_usuario, ci, cargo, id_empresa]`.
+
+**Flujo típico CU3 (de la oferta a la campaña):**
+1. Oferta: `insSer["Spot en pausa comercial","TV",""]` → `insTar["1","","350","por spot","30","",""]` → `insTar["1","","120","por mención","","",""]`.
+2. Paquete (opcional): `insPaq["Combo TV","","10"]` → `addPaq["1","1","10"]` → `addPaq["1","2","5"]` → `mosPaq["1"]`.
+3. Cliente: `insEmp[...]` (o `insVis[...]` si solo quiere cotizar).
+4. Cotización: `insPro["1","","15","0"]` → `addDet["1","1","","20","2 por día"]` / `addDet["1","","1","1","mensual"]` → `mosPro["1"]` (el correo de respuesta **es** la cotización descargable).
+5. Cierre: `aprPro["1"]` (o `recPro["1"]`) → `genCam["1","Campaña Navidad","01/12/2026","31/12/2026"]` → la campaña queda lista para CU4 (material) y CU5 (pauta).
 
 ---
 
@@ -322,91 +420,110 @@ documentación se escribe siempre en camelCase.
 | Elemento | Convención | Ejemplo |
 |---|---|---|
 | Paquete raíz | `grupo13` | `grupo13.negocio` |
-| Clase de datos | `D` + Entidad | `DUsuario`, `DTarifa` |
-| Clase de negocio | `N` + Entidad | `NUsuario`, `NTarifa` |
-| Métodos de negocio | verbo en español | `listar`, `mostrar`, `insertar`, `modificar`, `eliminar`, `activar` |
+| Clase de datos | `D` + Entidad (`grupo13.datos`) | `DUsuario`, `DTarifa` |
+| Clase de negocio | `N` + Entidad (`grupo13.negocio`) | `NUsuario`, `NTarifa` |
+| Clase de presentación | `P` + Entidad (`grupo13.presentacion`) | `PUsuario`, `PTarifa` |
+| Métodos `D*` | verbo + objeto, valores tipados | `listar(filtro)`, `obtener(id)`, `insertar(...)`, `cambiarEstado(id, activo)` |
+| Métodos `N*` | verbo de negocio, parámetros `String` explícitos | `listar(filtro)`, `obtener(id)`, `insertar(...)`, `modificar(...)`, `eliminar(id)`, `activar(id)` |
+| Métodos `P*` | igual que el comando, reciben `List<String>` y devuelven `Respuesta` | `listar(p)`, `insertar(p)`, `agregarTarifa(p)` |
 | Comandos | acción(3) + Entidad(3) camelCase | `lisTar`, `insPaq` |
 | Idioma | **español** en clases, métodos, variables, mensajes y comentarios | — |
 
 ### Reglas
-1. **Siempre `PreparedStatement`** con `?`. Nunca concatenar valores del usuario en SQL.
-2. **Nunca devolver `password_hash`** ni datos sensibles en una respuesta.
-3. **Todo texto que vaya al HTML pasa por `Html.esc()`** (los parámetros vienen de cualquier remitente).
-4. Errores para el usuario → `throw new ComandoException("mensaje claro en español")`. El `Despachador` lo convierte en respuesta "Error".
-5. Validaciones de formato con `negocio/Validar` (`id`, `idOpcional`, `texto`, `textoOpcional`, `email`, `telefono`, `password`). Si falta una validación genérica, se agrega ahí.
-6. Antes de insertar/modificar, **verificar en negocio** unicidad y existencia de claves foráneas, para dar un mensaje claro en vez de un error SQL.
-7. **Baja lógica** (`activo = false`) cuando la tabla tiene columna `activo` y/o es referenciada por otras tablas; borrado físico solo en tablas "hoja" o detalle.
-8. Contraseñas → `Seguridad.hashPassword()` (PBKDF2-SHA256, 120 000 iteraciones, sal aleatoria). Verificar con `Seguridad.verificarPassword()`.
-9. Fechas en respuestas formateadas en SQL: `to_char(fecha, 'DD/MM/YYYY HH24:MI')`.
-10. Las clases `D*` abren y cierran su conexión con *try-with-resources* (`Conexion.abrir()`); no se comparten conexiones.
-11. Mismo estilo que el código existente: llaves en la misma línea, 4 espacios, comentarios `/** */` breves por método público.
-12. **Sin dependencias nuevas.** Si algo parece necesitar una librería (JSON, HTTP, scraping), usar lo que trae el JDK (`java.net.http.HttpClient`, `java.util.regex`, etc.).
+1. **Respetar las 3 capas** (sección 4): P* solo llama a N*; N* solo llama a D*; D* solo a `Conexion`. Pasar la verificación automática antes de cada commit.
+2. **Siempre `PreparedStatement`** con `?`. Nunca concatenar valores del usuario en SQL.
+3. **Nunca devolver `password_hash`** ni datos sensibles.
+4. **Todo texto que vaya al HTML pasa por `Html.esc()`** en la presentación (los parámetros vienen de cualquier remitente). `Html.tabla` y `Html.ficha` ya lo hacen.
+5. Errores de negocio → `throw new NegocioException("mensaje claro en español")`, en texto plano y **sin nombres de comandos**. Las sugerencias del tipo "use `actUsu[...]`" se escriben en la clase `P*`.
+   Errores del protocolo de comandos (formato, comando inexistente, nº de parámetros) → `ComandoException` en `presentacion.comandos`.
+6. Cada método público de `N*` envuelve su cuerpo en `try { ... } catch (SQLException e) { throw NegocioException.bd(e); }`: la presentación nunca ve `SQLException`.
+7. Validaciones de formato con `negocio/Validar` (`id`, `idOpcional`, `texto`, `textoOpcional`, `email`, `emailOpcional`, `telefono`, `ci`, `nit`, `password`, `url`, `enteroNoNegativo`, `enteroOpcional`, `monto`, `montoPositivo`, `porcentaje`, `fecha`, `fechaOpcional`, `rangoFechas`).
+8. Antes de insertar/modificar, **verificar en negocio** unicidad y existencia/estado de claves foráneas, para dar un mensaje claro en vez de un error SQL.
+9. **Cálculos y reglas derivadas en negocio** (nunca en SQL ni en la presentación). Datos solo guarda los valores calculados, en una transacción si son varias escrituras (`Conexion.enTransaccion`).
+10. **Formato en presentación:** datos devuelve `t`/`f`, fechas ISO y `NULL`; `Html.formato` los muestra como `Sí`/`No`, `DD/MM/AAAA` y `-`. Etiquetas compuestas (p. ej. "Empresa: X", "Sin asignar") las arma la clase `P*`.
+11. **Baja lógica** (`activo = false`) cuando la tabla tiene columna `activo` y/o es referenciada por otras tablas; borrado físico solo en tablas "hoja" o detalle.
+12. Contraseñas → `Seguridad.hashPassword()` (PBKDF2-SHA256, 120 000 iteraciones, sal aleatoria). Verificar con `Seguridad.verificarPassword()`.
+13. Las clases `D*` usan los ayudantes de `Conexion` (`consultar`, `consultarUno`, `valor`, `ejecutar`, `insertar` con `RETURNING`, `ids`, `estaActivo`, `contar`, `enTransaccion`, `nulo`), que abren y cierran la conexión; no se comparten conexiones.
+14. Mismo estilo que el código existente: llaves en la misma línea, 4 espacios, comentarios `/** */` breves por método público.
+15. **Sin dependencias nuevas.** Si algo parece necesitar una librería (JSON, HTTP, scraping), usar lo que trae el JDK (`java.net.http.HttpClient`, `java.util.regex`, etc.).
 
 ---
 
 ## 8. Cómo agregar un comando (paso a paso)
 
-Ejemplo: **CU3 – Tarifas** (`lisTar`, `insTar`).
+Ejemplo ilustrativo: **CU4 – Material publicitario** (`lisMat`). Siempre en este orden: **D → N → P → registrar**.
 
-**1. Datos** — `src/grupo13/datos/DTarifa.java`
+**1. Datos** — `src/grupo13/datos/DMaterial.java` (SQL y filas crudas, nada más)
 ```java
-public class DTarifa {
+/** Fila: id_material, nombre_archivo, tipo, estado, fecha_carga, campania. */
+public class DMaterial {
+
+    private static final String SELECT = "SELECT m.id_material, m.nombre_archivo, m.tipo, m.estado, m.fecha_carga, c.nombre"
+            + " FROM material_publicitario m JOIN campania c ON c.id_campania = m.id_campania";
 
     public List<String[]> listar(String filtro) throws SQLException {
-        String sql = "SELECT t.id_tarifa, s.nombre, t.monto, t.unidad_cobro,"
-                + " to_char(t.vigente_desde, 'DD/MM/YYYY'), to_char(t.vigente_hasta, 'DD/MM/YYYY'),"
-                + " CASE WHEN t.activo THEN 'Sí' ELSE 'No' END"
-                + " FROM tarifa t JOIN servicio_publicitario s ON s.id_servicio = t.id_servicio"
-                + (filtro == null ? "" : " WHERE s.nombre ILIKE ?")
-                + " ORDER BY t.id_tarifa";
-        try (Connection c = Conexion.abrir(); PreparedStatement ps = c.prepareStatement(sql)) {
-            if (filtro != null) {
-                ps.setString(1, "%" + filtro + "%");
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                return Conexion.leerFilas(rs);
-            }
+        if (filtro == null) {
+            return Conexion.consultar(SELECT + " ORDER BY m.id_material");
+        }
+        String like = "%" + filtro + "%";
+        return Conexion.consultar(SELECT + " WHERE m.nombre_archivo ILIKE ? OR c.nombre ILIKE ? ORDER BY m.id_material", like, like);
+    }
+}
+```
+
+**2. Negocio** — `src/grupo13/negocio/NMaterial.java` (validaciones, reglas y cálculos; devuelve datos)
+```java
+/** CU4 / RF08. Fila: id_material, nombre_archivo, tipo, estado, fecha_carga, campania. */
+public class NMaterial {
+
+    private final DMaterial datos = new DMaterial();
+
+    public List<String[]> listar(String filtro) throws NegocioException {
+        try {
+            return datos.listar(filtro);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
     }
 }
 ```
 
-**2. Negocio** — `src/grupo13/negocio/NTarifa.java`
+**3. Presentación** — `src/grupo13/presentacion/PMaterial.java` (columnas, mensajes y HTML)
 ```java
-public class NTarifa {
+/** Presentación del CU4 – Material: lisMat. */
+public class PMaterial {
 
-    private static final String[] TITULOS = {"ID", "Servicio", "Monto", "Unidad cobro", "Desde", "Hasta", "Activo"};
-    private final DTarifa datos = new DTarifa();
+    private static final String[] COLUMNAS = {"ID", "Archivo", "Tipo", "Estado", "Fecha de carga", "Campaña"};
+    private final NMaterial negocio = new NMaterial();
 
-    /** lisTar["*"] */
-    public Respuesta listar(List<String> p) throws SQLException {
-        String filtro = p.get(0).equals("*") ? null : p.get(0);
-        return Respuesta.exito("Listando las Tarifas",
-                Html.pagina("Listando las Tarifas", Html.tabla(TITULOS, datos.listar(filtro))));
+    /** lisMat["*"] */
+    public Respuesta listar(List<String> p) throws NegocioException {
+        return Vista.listado("Listando el Material", "Material Publicitario", COLUMNAS, negocio.listar(Vista.filtro(p.get(0))));
     }
 }
 ```
 
-**3. Registro** — en el constructor de `comandos/Despachador.java`
+**4. Registro** — en `presentacion/comandos/Despachador.java`
 ```java
-NTarifa tarifa = new NTarifa();
+PMaterial material = new PMaterial();
 
-grupo("CU3: Oferta Comercial, Clientes y Cotizaciones");
-registrar("lisTar", "Lista las tarifas (\"*\" = todas)",
-        new String[]{"filtro"}, "lisTar[\"*\"]", tarifa::listar);
+grupo("CU4: Material publicitario (RF08)");
+registrar("lisMat", "Lista el material publicitario (\"*\" = todo)",
+        new String[]{"filtro"}, "lisMat[\"*\"]", material::listar);
 ```
-`registrar(nombre, descripción, nombresDeParámetros, ejemplo, método)`. Con esto el comando ya:
+`registrar(nombre, descripción, nombresDeParámetros, ejemplo, métodoP)`. Con esto el comando ya:
 - aparece en `help` dentro de su grupo,
 - valida la cantidad de parámetros y muestra el ejemplo si está mal,
-- convierte cualquier excepción en una respuesta "Error".
+- convierte `NegocioException` y `ComandoException` en una respuesta "Error".
 
-**4. Probar sin correo**
+**5. Verificar y probar**
 ```
-java -cp "out;lib/*" grupo13.App --probar "lisTar[\"*\"]"
+grep ... (verificación automática de la sección 4: no debe imprimir nada)
+java -cp "out;lib/*" grupo13.App --probar "lisMat[\"*\"]"
 ```
 Probar el caso correcto **y** los casos de error (parámetros de menos, ID inexistente, FK inexistente, duplicado).
 
-**5. Documentar** — agregar el comando a la tabla de la sección 6 y actualizar el estado en la sección 3.
+**6. Documentar** — agregar el comando a la tabla de la sección 6 y actualizar el estado en la sección 3.
 
 ---
 
@@ -444,7 +561,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 |---|---|---|
 | **CU1** ✅ | Implementado (ver sección 6). Opcional: control de permisos por rol según el remitente del correo. | Requiere decidir si se agrega una tabla de permisos al esquema. |
 | **CU2** ✅ | Implementado (ver sección 6). | `canal_difusion` + `red_social` en transacción; bajas lógicas y seguidores. |
-| **CU3** | `insEmp`, `modEmp`, `eliEmp`, `actEmp` (`lisEmp` ya existe) · `lisVis`, `insVis` · `lisSer`, `insSer`, `modSer`, `eliSer` · `lisTar`, `insTar`, `modTar`, `eliTar` · `lisPaq`, `insPaq`, `modPaq`, `eliPaq`, `addPaq` (agregar tarifa) · `insPro`, `addDet` (agregar ítem), `mosPro`, `lisPro`, `genCam` (generar campaña desde proforma) | Totales de proforma se **calculan** en negocio: subtotal = Σ detalle; total = subtotal − descuento. `mosPro` es la cotización "descargable" (HTML en el correo). |
+| **CU3** ✅ | Implementado (ver sección 6). | Totales y precios se recalculan en SQL dentro de transacciones; cada ítem de proforma congela su precio unitario. |
 | **CU4** | `insMat`, `lisMat`, `mosMat` · `aprMat`, `recMat`, `corMat` (aprobar / rechazar / pedir corrección) · `lisRev` | El archivo se referencia por URL (`url_archivo`); cada revisión inserta en `revision_material` y cambia `estado`. Opcional: leer adjuntos del correo. |
 | **CU5** | `lisEsp`, `insEsp`, `dispEsp` (disponibles por fecha/canal) · `insPau`, `lisPau`, `modPau`, `eliPau` · `lisNot` | Validar que el espacio esté `disponible` y el material `aprobado`. Al programar en una red social: insertar `notificacion` y **enviar correo** al encargado (`ClienteSMTP`). |
 | **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |
@@ -540,7 +657,7 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 | Puerto 25 | Algunas redes/ISP bloquean el puerto 25 de salida. | Probar desde la red de la facultad o con otra conexión. |
 | Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde (queda en el log). | Revisar la consola. |
 | Datos compartidos | Todos usan la misma `db_grupo13sa`. | Usar datos de prueba identificables y borrarlos al terminar. |
-| Archivos (CU4) | El material se registra por URL; aún no se leen adjuntos MIME. | Extensión futura en `ClientePOP3` (multipart). |
+| Archivos (CU4) | El material se registra por URL; aún no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |
 | Scraping (CU6) | Las redes sociales bloquean bots y requieren login. | Usar búsquedas públicas/URLs conocidas con `HttpClient`; registrar errores en `ejecucion_scraping.mensaje_error`. |
 
 ---
@@ -552,9 +669,9 @@ Si eres un agente trabajando en este repositorio:
 1. **No agregues frameworks ni dependencias.** Solo JDK 17 + `lib/postgresql-42.7.4.jar`.
 2. **No modifiques el esquema de la base de datos** ni ejecutes `sql/schema.sql`: las tablas ya existen. Si un CU requiere cambiarlo, propón el cambio y espera confirmación.
 3. **No ejecutes `grupo13.App` sin `--probar`** salvo que te lo pidan: lee y **borra** los correos reales del buzón y envía respuestas.
-4. Sigue las convenciones de la sección 7 y el procedimiento de la sección 8 (D* → N* → registrar en `Despachador`).
+4. **Respeta estrictamente las 3 capas** (sección 4): sigue el procedimiento de la sección 8 (D* → N* → P* → registrar en `Despachador`) y ejecuta la verificación automática; no debe imprimir nada.
 5. Nombres de comandos: acción(3) + Entidad(3) en camelCase. Confirma con el usuario los nombres nuevos si no están en la sección 10.
 6. Prueba cada comando con `--probar`, incluidos los casos de error, y **elimina los datos de prueba** que insertes (y reinicia la identidad si la tabla quedó vacía: `ALTER TABLE t ALTER COLUMN id RESTART WITH 1`).
-7. Mensajes al usuario en **español**, claros y escapados con `Html.esc()`.
+7. Mensajes al usuario en **español**: los de negocio en texto plano y sin nombres de comandos; la presentación los escapa con `Html.esc()`.
 8. Al terminar, actualiza este README: tabla de comandos (sección 6), estado del CU (sección 3) y hoja de ruta (sección 10).
 9. Nunca escribas credenciales en archivos versionados; usa `config.properties`.

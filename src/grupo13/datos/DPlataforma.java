@@ -1,13 +1,11 @@
 package grupo13.datos;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
 /**
  * Capa de datos de la tabla plataforma (catálogo de redes sociales: Facebook, TikTok, etc.).
+ * Fila: id_plataforma, nombre, redes_activas.
  */
 public class DPlataforma {
 
@@ -18,69 +16,31 @@ public class DPlataforma {
             + " FROM plataforma p";
 
     public List<String[]> listar(String filtro) throws SQLException {
-        String sql = SELECT
-                + (filtro == null ? "" : " WHERE p.nombre ILIKE ?")
-                + " ORDER BY p.id_plataforma";
-        try (Connection c = Conexion.abrir(); PreparedStatement ps = c.prepareStatement(sql)) {
-            if (filtro != null) {
-                ps.setString(1, "%" + filtro + "%");
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                return Conexion.leerFilas(rs);
-            }
+        if (filtro == null) {
+            return Conexion.consultar(SELECT + " ORDER BY p.id_plataforma");
         }
+        return Conexion.consultar(SELECT + " WHERE p.nombre ILIKE ? ORDER BY p.id_plataforma", "%" + filtro + "%");
     }
 
     public String[] obtener(int id) throws SQLException {
-        try (Connection c = Conexion.abrir();
-             PreparedStatement ps = c.prepareStatement(SELECT + " WHERE p.id_plataforma = ?")) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                List<String[]> filas = Conexion.leerFilas(rs);
-                return filas.isEmpty() ? null : filas.get(0);
-            }
-        }
+        return Conexion.consultarUno(SELECT + " WHERE p.id_plataforma = ?", id);
     }
 
     public boolean existe(int id) throws SQLException {
-        try (Connection c = Conexion.abrir();
-             PreparedStatement ps = c.prepareStatement("SELECT 1 FROM plataforma WHERE id_plataforma = ?")) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
+        return Conexion.contar("SELECT count(*) FROM plataforma WHERE id_plataforma = ?", id) > 0;
     }
 
     public boolean nombreEnUso(String nombre, int excluirId) throws SQLException {
-        try (Connection c = Conexion.abrir();
-             PreparedStatement ps = c.prepareStatement(
-                     "SELECT 1 FROM plataforma WHERE lower(nombre) = lower(?) AND id_plataforma <> ?")) {
-            ps.setString(1, nombre);
-            ps.setInt(2, excluirId);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
+        return Conexion.contar("SELECT count(*) FROM plataforma WHERE lower(nombre) = lower(?) AND id_plataforma <> ?",
+                nombre, excluirId) > 0;
     }
 
     public int insertar(String nombre) throws SQLException {
-        String sql = "INSERT INTO plataforma (nombre) VALUES (?) RETURNING id_plataforma";
-        try (Connection c = Conexion.abrir(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, nombre);
-            try (ResultSet rs = ps.executeQuery()) {
-                rs.next();
-                return rs.getInt(1);
-            }
-        }
+        return Conexion.insertar("INSERT INTO plataforma (nombre) VALUES (?) RETURNING id_plataforma", nombre);
     }
 
     /** Borrado físico (útil para pruebas y limpieza de datos). */
     public int eliminar(int id) throws SQLException {
-        try (Connection c = Conexion.abrir();
-             PreparedStatement ps = c.prepareStatement("DELETE FROM plataforma WHERE id_plataforma = ?")) {
-            ps.setInt(1, id);
-            return ps.executeUpdate();
-        }
+        return Conexion.ejecutar("DELETE FROM plataforma WHERE id_plataforma = ?", id);
     }
 }
