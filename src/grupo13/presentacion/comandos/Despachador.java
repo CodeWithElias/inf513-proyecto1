@@ -16,6 +16,7 @@ import grupo13.presentacion.PPauta;
 import grupo13.presentacion.PPlataforma;
 import grupo13.presentacion.PProforma;
 import grupo13.presentacion.PRedSocial;
+import grupo13.presentacion.PReporte;
 import grupo13.presentacion.PRepresentante;
 import grupo13.presentacion.PRol;
 import grupo13.presentacion.PScraping;
@@ -315,6 +316,33 @@ public class Despachador {
         registrarCu5();
         registrarCu6();
         registrarCu7();
+        registrarCu8();
+    }
+
+    /** CU8: Reportes y Estadísticas (RF13). Periodo: fecha_desde y fecha_hasta en DD/MM/AAAA, "*" = sin límite. */
+    private void registrarCu8() {
+        PReporte reporte = new PReporte();
+        String[] periodo = PReporte.PARAMS_PERIODO;
+
+        grupo("CU8: Reportes y estadísticas (RF13) - periodo DD/MM/AAAA o \"*\" = sin límite");
+        registrar("tabGen", "Tablero general: ingresos, conversión, campañas, pautas, impacto y alertas",
+                periodo, "tabGen[\"01/01/2026\",\"31/12/2026\"]", reporte::tablero);
+        registrar("repCom", "Reporte comercial: proformas por estado, ingresos por mes, conversión y principales clientes",
+                periodo, "repCom[\"01/01/2026\",\"31/12/2026\"]", reporte::comercial);
+        registrar("repSer", "Servicios y paquetes más vendidos",
+                periodo, "repSer[\"*\",\"*\"]", reporte::servicios);
+        registrar("repPau", "Ocupación de la pauta por canal y tasa de cancelación",
+                periodo, "repPau[\"01/12/2026\",\"31/12/2026\"]", reporte::ocupacion);
+        registrar("repMat", "Material publicitario: estados, tasa de aprobación y revisiones",
+                periodo, "repMat[\"*\",\"*\"]", reporte::material);
+        registrar("repImp", "Impacto y alcance: por canal, por campaña y pautas con más interacción",
+                periodo, "repImp[\"01/01/2026\",\"31/12/2026\"]", reporte::impacto);
+        registrar("repRed", "Crecimiento de seguidores de las redes sociales",
+                periodo, "repRed[\"01/01/2026\",\"31/12/2026\"]", reporte::redes);
+        registrar("repMon", "Monitoreo de páginas no autorizadas: detecciones por plataforma, término y estado",
+                periodo, "repMon[\"*\",\"*\"]", reporte::monitoreo);
+        registrar("repCli", "Vista del cliente: su inversión, sus campañas y su impacto (CPM, costo por interacción)",
+                new String[]{"id_empresa", "fecha_desde", "fecha_hasta"}, "repCli[\"1\",\"*\",\"*\"]", reporte::cliente);
     }
 
     /** CU7: Gestión de Análisis de Métricas de Impacto (RF13). */
