@@ -28,9 +28,9 @@ public class DCanal {
         return Conexion.consultarUno(SELECT + " WHERE c.id_canal = ?", id);
     }
 
-    /** Si el canal es una red social: {id_unidad, id_usuario responsable}; si no, null. */
+    /** Si el canal es una red social: {id_unidad, id_usuario responsable, id_plataforma}; si no, null. */
     public String[] datosRedSocial(int idCanal) throws SQLException {
-        return Conexion.consultarUno("SELECT id_unidad, id_usuario FROM red_social WHERE id_canal = ?", idCanal);
+        return Conexion.consultarUno("SELECT id_unidad, id_usuario, id_plataforma FROM red_social WHERE id_canal = ?", idCanal);
     }
 
     public boolean nombreEnUso(String nombre, int excluirId) throws SQLException {
