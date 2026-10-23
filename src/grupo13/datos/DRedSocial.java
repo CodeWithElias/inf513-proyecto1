@@ -1,6 +1,7 @@
 package grupo13.datos;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -34,6 +35,15 @@ public class DRedSocial {
 
     public String[] obtener(int idCanal) throws SQLException {
         return Conexion.consultarUno(SELECT + " WHERE r.id_canal = ?", idCanal);
+    }
+
+    /** URLs de todas las redes oficiales registradas para una plataforma (activas o no). */
+    public List<String> urlsOficiales(int idPlataforma) throws SQLException {
+        List<String> urls = new ArrayList<>();
+        for (String[] f : Conexion.consultar("SELECT url FROM red_social WHERE id_plataforma = ?", idPlataforma)) {
+            urls.add(f[0]);
+        }
+        return urls;
     }
 
     /** null = no existe, true/false = activo. */
