@@ -2,11 +2,13 @@ package grupo13.presentacion.comandos;
 
 import grupo13.negocio.NegocioException;
 import grupo13.presentacion.Html;
+import grupo13.presentacion.PAnalisis;
 import grupo13.presentacion.PCampania;
 import grupo13.presentacion.PCanal;
 import grupo13.presentacion.PEmpresa;
 import grupo13.presentacion.PEspacio;
 import grupo13.presentacion.PMaterial;
+import grupo13.presentacion.PMetrica;
 import grupo13.presentacion.PNotificacion;
 import grupo13.presentacion.PPagina;
 import grupo13.presentacion.PPaquete;
@@ -312,6 +314,35 @@ public class Despachador {
         registrarCu4();
         registrarCu5();
         registrarCu6();
+        registrarCu7();
+    }
+
+    /** CU7: Gestión de Análisis de Métricas de Impacto (RF13). */
+    private void registrarCu7() {
+        PMetrica metrica = new PMetrica();
+        PAnalisis analisis = new PAnalisis();
+
+        grupo("CU7: Métricas de las pautas publicadas (RF13) - mediciones acumuladas");
+        registrar("insMet", "Registra una medición manual de una pauta publicada (cualquier canal)",
+                new String[]{"id_programacion", "alcance", "impresiones", "interacciones", "clics", "compartidos"},
+                "insMet[\"5\",\"1200\",\"3400\",\"210\",\"45\",\"12\"]", metrica::registrar);
+        registrar("modMet", "Corrige una medición",
+                new String[]{"id_metrica", "alcance", "impresiones", "interacciones", "clics", "compartidos"},
+                "modMet[\"1\",\"1250\",\"3400\",\"210\",\"45\",\"12\"]", metrica::modificar);
+        registrar("eliMet", "Elimina una medición registrada por error",
+                new String[]{"id_metrica"}, "eliMet[\"1\"]", metrica::eliminar);
+        registrar("lisMet", "Historial de mediciones de una pauta",
+                new String[]{"id_programacion"}, "lisMet[\"5\"]", metrica::listar);
+        registrar("capMet", "Captura automática desde YouTube: vistas y me gusta/comentarios (\"*\" = todas las pautas de YouTube)",
+                new String[]{"id_programacion"}, "capMet[\"*\"]", metrica::capturar);
+
+        grupo("CU7: Análisis de impacto (RF13)");
+        registrar("anaPau", "Indicadores de una pauta: tasa de interacción, CTR, frecuencia, viralidad y crecimiento",
+                new String[]{"id_programacion"}, "anaPau[\"5\"]", analisis::pauta);
+        registrar("anaCam", "Rendimiento de una campaña: totales, por canal y costo por resultado (CPM, CPC)",
+                new String[]{"id_campania"}, "anaCam[\"2\"]", analisis::campania);
+        registrar("anaRed", "Crecimiento de seguidores de una red social y rendimiento de sus pautas",
+                new String[]{"id_canal"}, "anaRed[\"1\"]", analisis::red);
     }
 
     /** CU6: Monitoreo y detección de páginas no autorizadas mediante scraping (RF12). */

@@ -1,5 +1,6 @@
 package grupo13;
 
+import grupo13.presentacion.PMetrica;
 import grupo13.presentacion.PScraping;
 import grupo13.presentacion.comandos.Despachador;
 import grupo13.presentacion.comandos.Respuesta;
@@ -27,6 +28,7 @@ public class App {
 
     private final Despachador despachador = new Despachador();
     private final PScraping scraping = new PScraping();
+    private final PMetrica metricas = new PMetrica();
     private final ClienteSMTP smtp = new ClienteSMTP(
             Config.get("smtp.host"), Config.getInt("smtp.puerto"), Config.get("mail.direccion"));
 
@@ -63,10 +65,14 @@ public class App {
         }
     }
 
-    /** CU6 / RF12: ejecución periódica del monitoreo de páginas no autorizadas. */
+    /** CU6 / RF12 y CU7 / RF13: monitoreo de páginas no autorizadas y captura de métricas de YouTube. */
     private void scrapingProgramado() {
         log("Iniciando scraping programado...");
         for (String linea : scraping.ejecutarProgramado()) {
+            log("  " + linea);
+        }
+        log("Capturando métricas de las pautas publicadas en YouTube (CU7)...");
+        for (String linea : metricas.capturarProgramado()) {
             log("  " + linea);
         }
     }

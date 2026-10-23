@@ -81,7 +81,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ✅ **Completo**: carga por URL con validación técnica (formato por tipo, duración contratada), revisión por Canal 11 (aprobar / rechazar / pedir corrección), versiones e historial |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `canal_difusion`, `espacio_publicitario`, `programacion_pauta`, `notificacion` | ✅ **Completo**: canales, calendario de espacios sin superposición, programación validada contra lo contratado, reprogramación/cancelación/publicación y avisos a la unidad (sistema + correo) |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ✅ **Completo (YouTube)**: búsqueda por términos en canales y videos, comparación con las redes oficiales del CU2, registro con evidencia, seguimiento por estados, ejecución periódica y alertas al administrador. Facebook/TikTok pendientes (anti-scraping) |
-| **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ⚪ Pendiente |
+| **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ✅ **Completo**: mediciones manuales (cualquier canal) y captura automática de YouTube; indicadores por pauta, campaña (incluye costo por resultado) y red social |
 | **CU8** | Reportes y Estadísticas | RF13 | consultas agregadas sobre todas las tablas | ⚪ Pendiente |
 
 ### Resumen de los requisitos
@@ -197,7 +197,8 @@ proyecto-mail/
     │   ├── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
     │   ├── PMaterial                                                                  (CU4)
     │   ├── PCanal, PEspacio, PPauta, PNotificacion                                    (CU5)
-    │   └── PTermino, PScraping (manual + periódico), PPagina                          (CU6)
+    │   ├── PTermino, PScraping (manual + periódico), PPagina                          (CU6)
+    │   └── PMetrica (registro + captura), PAnalisis (indicadores)                     (CU7)
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
@@ -210,8 +211,10 @@ proyecto-mail/
     │   ├── NMaterial (formatos por tipo, duración contratada, estados y revisiones) (CU4)
     │   ├── NCanal, NEspacio (superposición), NPauta (cupo contratado, compatibilidad,
     │   │   destinatarios de avisos), NNotificacion, ResultadoPauta                  (CU5)
-    │   └── NTermino, NScraping (coincidencia de términos, comparación con oficiales,
-    │       alertas), NPagina (estados), ResultadoScraping                           (CU6)
+    │   ├── NTermino, NScraping (coincidencia de términos, comparación con oficiales,
+    │   │   alertas), NPagina (estados), ResultadoScraping                           (CU6)
+    │   └── NMetrica (coherencia, captura YouTube), NAnalisis (cálculo de indicadores),
+    │       Analisis                                                                 (CU7)
     │
     └── datos/                     ══════ CAPA DE DATOS ══════
         ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
@@ -222,7 +225,8 @@ proyecto-mail/
         ├── DMaterial (material_publicitario + revision_material)                       (CU4)
         ├── DCanal, DEspacio, DPauta (pauta + espacio + avisos en transacción), DNotificacion (CU5)
         ├── DTermino, DEjecucion, DPagina (página + detecciones + avisos en transacción)  (CU6)
-        └── DYoutube (fuente externa: búsqueda pública de YouTube) + Json (lector JSON)  (CU6)
+        ├── DYoutube (fuente externa: búsqueda y estadísticas públicas de YouTube) + Json  (CU6, CU7)
+        └── DMetrica (mediciones; última medición por pauta con LATERAL)                (CU7)
 ```
 
 ---
@@ -453,6 +457,16 @@ documentación se escribe siempre en camelCase.
 | `lisPag` | filtro (URL, nombre, estado o plataforma) | `lisPag["detectada"]` |
 | `mosPag` | id_pagina — la página y sus detecciones con evidencia | `mosPag["1"]` |
 | `modPag` | id_pagina, estado (`confirmada`, `denunciada`, `eliminada`), id_usuario (**personal de Canal 11**) | `modPag["1","confirmada","1"]` |
+| **CU7 · Métricas** (RF13) — mediciones **acumuladas** de pautas **publicadas**; coherencia: alcance ≤ impresiones, clics ≤ impresiones, compartidos ≤ interacciones | | |
+| `insMet` | id_programacion, alcance, impresiones, interacciones, clics, compartidos — registro manual (cualquier canal) | `insMet["5","1200","3400","210","45","12"]` |
+| `modMet` | id_metrica + los 5 valores — corrige una medición | `modMet["1","1250","3400","210","45","12"]` |
+| `eliMet` | id_metrica — borra una medición registrada por error | `eliMet["1"]` |
+| `lisMet` | id_programacion — historial de mediciones | `lisMet["5"]` |
+| `capMet` | id_programacion (`*` = todas las de YouTube) — **captura automática**: impresiones = vistas, interacciones = me gusta + comentarios; alcance, clics y compartidos se mantienen de la última medición | `capMet["*"]` |
+| **CU7 · Análisis de impacto** (RF13) | | |
+| `anaPau` | id_programacion — tasa de interacción, CTR, frecuencia, viralidad y crecimiento respecto a la medición anterior | `anaPau["5"]` |
+| `anaCam` | id_campania — totales, indicadores, **rendimiento por canal** y **costo por resultado** (CPM, costo por clic, costo por interacción) sobre la inversión de la proforma | `anaCam["2"]` |
+| `anaRed` | id_canal — crecimiento de seguidores (total, %, diario) e interacción de las pautas publicadas en la red | `anaRed["1"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -518,6 +532,30 @@ el canal debe ser una red social de esa unidad.
 
 > La primera ejecución detecta también canales legítimos no registrados (facultades, carreras, medios que mencionan a la
 > UAGRM). Es lo esperado: los que sean de la universidad se registran como redes oficiales en el CU2.
+
+**Flujo típico CU7 (medir y analizar el impacto):**
+1. Publicada la pauta (`pubPau`), se registran mediciones a lo largo del tiempo:
+   - cualquier canal: `insMet["id_pauta","alcance","impresiones","interacciones","clics","compartidos"]`
+     (los datos se copian de Meta Business Suite, YouTube Studio, el rating de TV, etc.);
+   - YouTube: `capMet["id_pauta"]` o `capMet["*"]`; además `App` lo hace **solo** junto con el scraping (cada
+     `scraping.intervalo.horas`). Completar alcance/clics/compartidos con `modMet` si se conocen.
+2. Análisis: `anaPau` (una pauta), `anaCam` (la campaña completa, vista útil para el cliente) y `anaRed` (una red social).
+
+Indicadores (calculados en `NAnalisis`; base = alcance si se conoce, si no impresiones):
+
+| Indicador | Fórmula |
+|---|---|
+| Tasa de interacción | interacciones / base × 100 |
+| CTR | clics / impresiones × 100 |
+| Frecuencia | impresiones / alcance (solo pautas que informan alcance) |
+| Tasa de viralidad | compartidos / base × 100 |
+| Crecimiento | (actual − anterior) / anterior × 100 |
+| CPM | inversión / impresiones × 1000 |
+| Costo por clic / por interacción | inversión / clics · inversión / interacciones |
+| Interacción sobre la comunidad | interacciones de las pautas / seguidores actuales × 100 |
+
+En campañas y redes se usa la **última medición** de cada pauta (las mediciones son acumuladas) y, en el agregado, cada
+pauta aporta su alcance o, si no lo informa (YouTube), sus impresiones. Si un denominador es 0 el indicador sale "sin datos".
 
 ---
 
@@ -673,7 +711,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | **CU4** ✅ | Implementado (ver sección 6). | Material por URL; la duración máxima sale de las tarifas contratadas (directas y de paquetes); cada revisión queda en `revision_material`. |
 | **CU5** ✅ | Implementado (ver sección 6). | La notificación se guarda en la misma transacción que la pauta; el correo lo envía la presentación (`Notificador`) y si falla el aviso igual queda en el sistema. |
 | **CU6** ✅ (YouTube) | Implementado (ver sección 6). Pendiente: Facebook y TikTok. | Agregar otra plataforma = una fuente `D<Plataforma>` que devuelva las mismas filas que `DYoutube` y su nombre en `NScraping.SOPORTADAS`. |
-| **CU7** | `insMet`, `lisMet` (por programación) · `resMet` (resumen por campaña) | Métricas ingresadas por comando o importadas; agregaciones con `SUM`/`AVG` en SQL. |
+| **CU7** ✅ | Implementado (ver sección 6). | Los indicadores se calculan en negocio (`NAnalisis`); SQL solo trae la última medición de cada pauta. Los reportes globales por periodo quedan para el CU8. |
 | **CU8** | `repIng` (ingresos por proformas/periodo) · `repCam` (campañas por estado) · `repMat` (material aprobado/rechazado) · `repPau` (pautas por canal) · `repMet` (impacto) · `repPag` (páginas detectadas) | Reportes = consultas agregadas → tablas HTML. Parámetros típicos: fecha_inicio, fecha_fin (`DD/MM/YYYY`). |
 
 ---

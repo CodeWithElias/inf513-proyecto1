@@ -70,6 +70,27 @@ public class DYoutube {
         }
     }
 
+    private static final Pattern VISTAS = Pattern.compile("\"viewCount\":\"(\\d+)\"");
+    private static final Pattern ME_GUSTA = Pattern.compile("\"likeCount\":\"(\\d+)\"");
+    private static final Pattern COMENTARIOS =
+            Pattern.compile("\"contextualInfo\":\\{\"runs\":\\[\\{\"text\":\"([\\d.,]+)\"\\}\\]");
+
+    /**
+     * Estadísticas públicas de un video: {vistas, me_gusta, comentarios}. me_gusta y comentarios son null si el
+     * video no los muestra (p. ej. "me gusta" ocultos o comentarios desactivados).
+     */
+    public String[] estadisticasVideo(String idVideo) throws IOException {
+        String html = get(BASE + "/watch?v=" + URLEncoder.encode(idVideo, StandardCharsets.UTF_8));
+        Matcher v = VISTAS.matcher(html);
+        if (!v.find()) {
+            throw new IOException("YouTube no mostró las estadísticas del video " + idVideo
+                    + " (no existe, es privado o la página cambió de formato).");
+        }
+        Matcher g = ME_GUSTA.matcher(html);
+        Matcher c = COMENTARIOS.matcher(html);
+        return new String[]{v.group(1), g.find() ? g.group(1) : null, c.find() ? c.group(1).replaceAll("[.,]", "") : null};
+    }
+
     private static void extraer(Object datos, List<String[]> resultados) {
         List<Map<String, Object>> canales = new ArrayList<>();
         Json.buscar(datos, "channelRenderer", canales);
