@@ -80,7 +80,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ✅ **Completo**: carga por URL con validación técnica (formato por tipo, duración contratada), revisión por Canal 11 (aprobar / rechazar / pedir corrección), versiones e historial |
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `canal_difusion`, `espacio_publicitario`, `programacion_pauta`, `notificacion` | ✅ **Completo**: canales, calendario de espacios sin superposición, programación validada contra lo contratado, reprogramación/cancelación/publicación y avisos a la unidad (sistema + correo) |
-| **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ⚪ Pendiente |
+| **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ✅ **Completo (YouTube)**: búsqueda por términos en canales y videos, comparación con las redes oficiales del CU2, registro con evidencia, seguimiento por estados, ejecución periódica y alertas al administrador. Facebook/TikTok pendientes (anti-scraping) |
 | **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ⚪ Pendiente |
 | **CU8** | Reportes y Estadísticas | RF13 | consultas agregadas sobre todas las tablas | ⚪ Pendiente |
 
@@ -196,7 +196,8 @@ proyecto-mail/
     │   ├── PPlataforma, PRedSocial, PSeguidoresRed            (CU2)
     │   ├── PEmpresa, PVisitante, PServicio, PTarifa, PPaquete, PProforma, PCampania   (CU3)
     │   ├── PMaterial                                                                  (CU4)
-    │   └── PCanal, PEspacio, PPauta, PNotificacion                                    (CU5)
+    │   ├── PCanal, PEspacio, PPauta, PNotificacion                                    (CU5)
+    │   └── PTermino, PScraping (manual + periódico), PPagina                          (CU6)
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
@@ -209,6 +210,8 @@ proyecto-mail/
     │   ├── NMaterial (formatos por tipo, duración contratada, estados y revisiones) (CU4)
     │   ├── NCanal, NEspacio (superposición), NPauta (cupo contratado, compatibilidad,
     │   │   destinatarios de avisos), NNotificacion, ResultadoPauta                  (CU5)
+    │   └── NTermino, NScraping (coincidencia de términos, comparación con oficiales,
+    │       alertas), NPagina (estados), ResultadoScraping                           (CU6)
     │
     └── datos/                     ══════ CAPA DE DATOS ══════
         ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
@@ -217,7 +220,9 @@ proyecto-mail/
         ├── DPlataforma, DRedSocial (canal_difusion + red_social), DSeguidoresRed       (CU2)
         ├── DEmpresa, DVisitante, DServicio, DTarifa, DPaquete, DProforma, DCampania    (CU3)
         ├── DMaterial (material_publicitario + revision_material)                       (CU4)
-        └── DCanal, DEspacio, DPauta (pauta + espacio + avisos en transacción), DNotificacion (CU5)
+        ├── DCanal, DEspacio, DPauta (pauta + espacio + avisos en transacción), DNotificacion (CU5)
+        ├── DTermino, DEjecucion, DPagina (página + detecciones + avisos en transacción)  (CU6)
+        └── DYoutube (fuente externa: búsqueda pública de YouTube) + Json (lector JSON)  (CU6)
 ```
 
 ---
@@ -437,6 +442,17 @@ documentación se escribe siempre en camelCase.
 | **CU5 · Notificaciones** (RF11) | | |
 | `lisNot` | id_usuario — avisos recibidos (fecha, título, mensaje, leída) | `lisNot["4"]` |
 | `leeNot` | id_notificacion — marca como leída | `leeNot["1"]` |
+| **CU6 · Términos de monitoreo** (RF12) | | |
+| `lisTer` | filtro | `lisTer["*"]` |
+| `insTer` | termino (mín. 3 caracteres, único), tipo (opcional) | `insTer["UAGRM","sigla"]` |
+| `eliTer` / `actTer` | id_termino — desactivar (deja de buscarse) / reactivar | `eliTer["1"]` |
+| **CU6 · Scraping** — por ahora solo **YouTube**; además se ejecuta **solo** cada `scraping.intervalo.horas` | | |
+| `ejeScr` | id_plataforma, id_termino (`*` = todos los términos activos de `termino_monitoreo`) — ejecuta ahora: busca, compara con `red_social`, registra y alerta | `ejeScr["1","*"]` · `ejeScr["1","2"]` |
+| `lisEje` | id_plataforma (`*` = todas) — historial: estado, errores, detecciones y páginas nuevas | `lisEje["*"]` |
+| **CU6 · Páginas no autorizadas** — toda cuenta encontrada que **no está en `red_social`**; estados `detectada → confirmada → denunciada → eliminada` | | |
+| `lisPag` | filtro (URL, nombre, estado o plataforma) | `lisPag["detectada"]` |
+| `mosPag` | id_pagina — la página y sus detecciones con evidencia | `mosPag["1"]` |
+| `modPag` | id_pagina, estado (`confirmada`, `denunciada`, `eliminada`), id_usuario (**personal de Canal 11**) | `modPag["1","confirmada","1"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -478,6 +494,30 @@ Reglas de `insPau`/`repPau`: campaña **activa**; espacio dentro de las fechas d
 contratado (cantidad del ítem, o cantidad × tarifas del paquete); el canal debe aceptar el tipo de material
 (TV: video/texto/banner · radio: audio/texto · web y redes: video/imagen/banner/texto); si la tarifa es de una unidad,
 el canal debe ser una red social de esa unidad.
+
+**Flujo típico CU6 (monitoreo de páginas no autorizadas en YouTube):**
+1. Preparación (una vez): `insPla["YouTube"]`, registrar los canales **oficiales** como redes del CU2
+   (`insRed["Canal 11 TVU","https://www.youtube.com/@canal11tvuuagrm","<id YouTube>","",""]`) y los términos
+   (`insTer["UAGRM","sigla"]`, `insTer["Canal 11",""]`).
+2. Ejecución: automática cada `scraping.intervalo.horas` (y al arrancar `App`) con **todos los términos activos** de
+   `termino_monitoreo`, o a pedido con `ejeScr["<id YouTube>","*"]` (todos) o `ejeScr["<id YouTube>","<id_termino>"]` (uno).
+   Por cada término se buscan **canales** (nombre y descripción) y **videos** (título y descripción → su canal), leyendo
+   hasta `scraping.paginas` páginas de resultados, igual que la librería Python *scrapetube* pero en Java puro.
+3. Solo cuentan los resultados que **contienen** el término (sin mayúsculas ni tildes). Cada canal se compara con las
+   redes oficiales de esa plataforma (`@handle` o `/channel/ID`); los que no son oficiales se registran como
+   `detectada`, con una detección por término y su **evidencia** (texto del canal o título y enlace del video).
+4. Alertas: cada página nueva genera una `notificacion` para los usuarios activos del rol `alertas.rol`
+   (por defecto *Administrador*), y se envía **un correo resumen por ejecución**.
+5. Una sola ejecución a la vez por plataforma: si hay otra *en_proceso* (de menos de 30 min) se rechaza; las más antiguas
+   se cierran como *interrumpidas*. Todos los resultados de una ejecución se guardan en **una transacción**; si algo falla,
+   la ejecución queda en `error` con el motivo (ver `lisEje`).
+6. Seguimiento del personal: `lisPag["detectada"]` → `mosPag["id"]` → `modPag["id","confirmada","id_usuario"]`
+   → `denunciada` → `eliminada` (si una eliminada reaparece, el scraping la reabre como detectada).
+7. **Lo único autorizado es `red_social`**, que administra el personal en el CU2; el scraping no autoriza nada.
+   Si una cuenta detectada resulta legítima, se la registra como red oficial (`insRed`) y deja de detectarse.
+
+> La primera ejecución detecta también canales legítimos no registrados (facultades, carreras, medios que mencionan a la
+> UAGRM). Es lo esperado: los que sean de la universidad se registran como redes oficiales en el CU2.
 
 ---
 
@@ -632,7 +672,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | **CU3** ✅ | Implementado (ver sección 6). | Totales y precios se recalculan en SQL dentro de transacciones; cada ítem de proforma congela su precio unitario. |
 | **CU4** ✅ | Implementado (ver sección 6). | Material por URL; la duración máxima sale de las tarifas contratadas (directas y de paquetes); cada revisión queda en `revision_material`. |
 | **CU5** ✅ | Implementado (ver sección 6). | La notificación se guarda en la misma transacción que la pauta; el correo lo envía la presentación (`Notificador`) y si falla el aviso igual queda en el sistema. |
-| **CU6** | `lisTer`, `insTer`, `eliTer` · `ejeScr` (ejecutar scraping ahora) · `lisPag`, `mosPag`, `modPag` (cambiar estado) · `lisDet` | Scraping con `java.net.http.HttpClient` + regex (sin librerías). Ejecución periódica: agregar una tarea en el bucle de `App` (p. ej. cada N vueltas). Registrar cada corrida en `ejecucion_scraping`. |
+| **CU6** ✅ (YouTube) | Implementado (ver sección 6). Pendiente: Facebook y TikTok. | Agregar otra plataforma = una fuente `D<Plataforma>` que devuelva las mismas filas que `DYoutube` y su nombre en `NScraping.SOPORTADAS`. |
 | **CU7** | `insMet`, `lisMet` (por programación) · `resMet` (resumen por campaña) | Métricas ingresadas por comando o importadas; agregaciones con `SUM`/`AVG` en SQL. |
 | **CU8** | `repIng` (ingresos por proformas/periodo) · `repCam` (campañas por estado) · `repMat` (material aprobado/rechazado) · `repPau` (pautas por canal) · `repMet` (impacto) · `repPag` (páginas detectadas) | Reportes = consultas agregadas → tablas HTML. Parámetros típicos: fecha_inicio, fecha_fin (`DD/MM/YYYY`). |
 
@@ -656,6 +696,9 @@ db.nombre=db_grupo13sa
 db.usuario=grupo13sa
 db.password=********
 app.intervalo=10
+scraping.intervalo.horas=6     # 0 = solo manual (ejeScr)
+scraping.paginas=3             # páginas de resultados de YouTube por búsqueda
+alertas.rol=Administrador      # rol que recibe las alertas del CU6
 ```
 El programa se ejecuta **desde la raíz del proyecto** (ahí busca `config.properties`).
 
@@ -727,7 +770,7 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 | Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde (queda en el log). | Revisar la consola. |
 | Datos compartidos | Todos usan la misma `db_grupo13sa`. | Usar datos de prueba identificables y borrarlos al terminar. |
 | Archivos (CU4) | El material se registra por URL (el esquema no tiene dónde guardar el archivo); no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |
-| Scraping (CU6) | Las redes sociales bloquean bots y requieren login. | Usar búsquedas públicas/URLs conocidas con `HttpClient`; registrar errores en `ejecucion_scraping.mensaje_error`. |
+| Scraping (CU6) | Facebook y TikTok bloquean bots y exigen login, por eso solo está YouTube. YouTube puede cambiar el formato de su página o limitar consultas automáticas: entonces la ejecución queda en `error` con el motivo en `mensaje_error`. Leer resultados de búsqueda de forma automatizada puede ir contra los términos de uso de la plataforma; mantener volúmenes bajos (`scraping.paginas`, `scraping.intervalo.horas`). | Ajustar `DYoutube` si cambia el formato; revisar `lisEje`. |
 
 ---
 

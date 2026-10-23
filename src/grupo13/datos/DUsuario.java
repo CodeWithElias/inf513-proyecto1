@@ -36,6 +36,13 @@ public class DUsuario {
         return Conexion.estaActivo("usuario", "id_usuario", id);
     }
 
+    /** Usuarios activos de un rol (por nombre, sin distinguir mayúsculas). Fila: id_usuario, nombre_completo, email. */
+    public List<String[]> activosDeRol(String nombreRol) throws SQLException {
+        return Conexion.consultar("SELECT u.id_usuario, u.nombre_completo, u.email FROM usuario u"
+                + " JOIN rol r ON r.id_rol = u.id_rol WHERE lower(r.nombre) = lower(?) AND u.activo AND r.activo"
+                + " ORDER BY u.id_usuario", nombreRol);
+    }
+
     /** Usuarios activos asignados a una unidad. Fila: id_usuario, nombre_completo, email. */
     public List<String[]> activosDeUnidad(int idUnidad) throws SQLException {
         return Conexion.consultar("SELECT id_usuario, nombre_completo, email FROM usuario WHERE id_unidad = ? AND activo"

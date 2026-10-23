@@ -26,6 +26,15 @@ public class DNotificacion {
         return Conexion.ejecutar("UPDATE notificacion SET leida = TRUE WHERE id_notificacion = ?", id);
     }
 
+    /** Registra avisos ({id_usuario, titulo, mensaje}) ligados a una detección de página no autorizada (CU6). */
+    static void insertarPorDeteccion(Connection c, String medio, int idDeteccion, List<String[]> avisos)
+            throws SQLException {
+        for (String[] a : avisos) {
+            Conexion.ejecutar(c, "INSERT INTO notificacion (medio, titulo, mensaje, id_usuario, id_deteccion)"
+                    + " VALUES (?, ?, ?, ?, ?)", medio, a[1], a[2], Integer.parseInt(a[0]), idDeteccion);
+        }
+    }
+
     /**
      * Registra los avisos de una programación dentro de la transacción en curso.
      * Cada aviso: {id_usuario, titulo, mensaje}.

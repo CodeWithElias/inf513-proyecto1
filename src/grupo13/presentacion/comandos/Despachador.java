@@ -8,6 +8,7 @@ import grupo13.presentacion.PEmpresa;
 import grupo13.presentacion.PEspacio;
 import grupo13.presentacion.PMaterial;
 import grupo13.presentacion.PNotificacion;
+import grupo13.presentacion.PPagina;
 import grupo13.presentacion.PPaquete;
 import grupo13.presentacion.PPauta;
 import grupo13.presentacion.PPlataforma;
@@ -15,9 +16,11 @@ import grupo13.presentacion.PProforma;
 import grupo13.presentacion.PRedSocial;
 import grupo13.presentacion.PRepresentante;
 import grupo13.presentacion.PRol;
+import grupo13.presentacion.PScraping;
 import grupo13.presentacion.PSeguidoresRed;
 import grupo13.presentacion.PServicio;
 import grupo13.presentacion.PTarifa;
+import grupo13.presentacion.PTermino;
 import grupo13.presentacion.PUnidad;
 import grupo13.presentacion.PUsuario;
 import grupo13.presentacion.PVisitante;
@@ -308,6 +311,38 @@ public class Despachador {
 
         registrarCu4();
         registrarCu5();
+        registrarCu6();
+    }
+
+    /** CU6: Monitoreo y detección de páginas no autorizadas mediante scraping (RF12). */
+    private void registrarCu6() {
+        PTermino termino = new PTermino();
+        PScraping scraping = new PScraping();
+        PPagina pagina = new PPagina();
+
+        grupo("CU6: Términos de monitoreo (RF12)");
+        registrar("lisTer", "Lista los términos de monitoreo",
+                new String[]{"filtro"}, "lisTer[\"*\"]", termino::listar);
+        registrar("insTer", "Registra un término a buscar (tipo opcional: sigla, nombre, marca…)",
+                new String[]{"termino", "tipo"}, "insTer[\"UAGRM\",\"sigla\"]", termino::insertar);
+        registrar("eliTer", "Desactiva un término (deja de buscarse)",
+                new String[]{"id_termino"}, "eliTer[\"1\"]", termino::eliminar);
+        registrar("actTer", "Reactiva un término",
+                new String[]{"id_termino"}, "actTer[\"1\"]", termino::activar);
+
+        grupo("CU6: Scraping (por ahora YouTube; también se ejecuta solo cada N horas)");
+        registrar("ejeScr", "Ejecuta ahora el scraping: un término de termino_monitoreo o \"*\" = todos los activos",
+                new String[]{"id_plataforma", "id_termino"}, "ejeScr[\"1\",\"*\"]", scraping::ejecutar);
+        registrar("lisEje", "Historial de ejecuciones (\"*\" = todas las plataformas)",
+                new String[]{"id_plataforma"}, "lisEje[\"*\"]", scraping::listar);
+
+        grupo("CU6: Páginas no autorizadas (todo lo que no está en red_social) - estados: detectada → confirmada → denunciada → eliminada");
+        registrar("lisPag", "Lista las páginas no autorizadas (busca por URL, nombre, estado o plataforma)",
+                new String[]{"filtro"}, "lisPag[\"detectada\"]", pagina::listar);
+        registrar("mosPag", "Muestra una página con sus detecciones y evidencias",
+                new String[]{"id_pagina"}, "mosPag[\"1\"]", pagina::mostrar);
+        registrar("modPag", "Cambia el estado de una página (lo revisa el personal de Canal 11)",
+                new String[]{"id_pagina", "estado", "id_usuario"}, "modPag[\"1\",\"confirmada\",\"1\"]", pagina::revisar);
     }
 
     /** CU5: Gestión de Programar Pauta Multi-Canal (RF10 y RF11). */

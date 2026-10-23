@@ -28,6 +28,9 @@ public final class Config {
         PROPS.setProperty("db.usuario", "grupo13sa");
         PROPS.setProperty("db.password", "grup013grup013*");
         PROPS.setProperty("app.intervalo", "10");
+        PROPS.setProperty("scraping.intervalo.horas", "6");
+        PROPS.setProperty("scraping.paginas", "3");
+        PROPS.setProperty("alertas.rol", "Administrador");
 
         try (InputStreamReader in = new InputStreamReader(
                 new FileInputStream("config.properties"), StandardCharsets.UTF_8)) {

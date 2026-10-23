@@ -1,5 +1,6 @@
 package grupo13;
 
+import grupo13.presentacion.PScraping;
 import grupo13.presentacion.comandos.Despachador;
 import grupo13.presentacion.comandos.Respuesta;
 import grupo13.config.Config;
@@ -17,7 +18,7 @@ import java.time.format.DateTimeFormatter;
 /**
  * Servidor de comandos vía correo electrónico.
  *
- *   java -cp ... grupo13.App                    -> revisa el buzón cada N segundos
+ *   java -cp ... grupo13.App                    -> revisa el buzón cada N segundos y ejecuta el scraping cada N horas
  *   java -cp ... grupo13.App --probar "ASUNTO"  -> ejecuta un comando sin correo (pruebas)
  */
 public class App {
@@ -25,6 +26,7 @@ public class App {
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final Despachador despachador = new Despachador();
+    private final PScraping scraping = new PScraping();
     private final ClienteSMTP smtp = new ClienteSMTP(
             Config.get("smtp.host"), Config.getInt("smtp.puerto"), Config.get("mail.direccion"));
 
@@ -42,14 +44,30 @@ public class App {
         }
 
         int intervalo = Config.getInt("app.intervalo");
+        long cadaScraping = Config.getInt("scraping.intervalo.horas") * 3600_000L;
         log("Escuchando " + Config.get("mail.direccion") + " cada " + intervalo + " s (Ctrl+C para salir)");
+        log(cadaScraping > 0 ? "Scraping automático (CU6) cada " + Config.get("scraping.intervalo.horas") + " h"
+                : "Scraping automático desactivado (solo manual con ejeScr)");
+        long proximoScraping = System.currentTimeMillis(); // la primera ejecución es al arrancar
         while (true) {
             try {
                 app.revisarBuzon();
             } catch (IOException e) {
                 log("Error de conexión: " + e.getMessage());
             }
+            if (cadaScraping > 0 && System.currentTimeMillis() >= proximoScraping) {
+                app.scrapingProgramado();
+                proximoScraping = System.currentTimeMillis() + cadaScraping;
+            }
             Thread.sleep(intervalo * 1000L);
+        }
+    }
+
+    /** CU6 / RF12: ejecución periódica del monitoreo de páginas no autorizadas. */
+    private void scrapingProgramado() {
+        log("Iniciando scraping programado...");
+        for (String linea : scraping.ejecutarProgramado()) {
+            log("  " + linea);
         }
     }
 
