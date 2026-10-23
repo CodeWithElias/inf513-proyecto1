@@ -82,7 +82,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 | **CU5** | Gestión de Programar Pauta Multi-Canal | RF10, RF11 | `canal_difusion`, `espacio_publicitario`, `programacion_pauta`, `notificacion` | ✅ **Completo**: canales, calendario de espacios sin superposición, programación validada contra lo contratado, reprogramación/cancelación/publicación y avisos a la unidad (sistema + correo) |
 | **CU6** | Gestión de Monitoreo y Detectar Páginas No Autorizadas mediante Scraping | RF12 | `termino_monitoreo`, `ejecucion_scraping`, `pagina_no_autorizada`, `deteccion_pagina`, `notificacion` | ✅ **Completo (YouTube)**: búsqueda por términos en canales y videos, comparación con las redes oficiales del CU2, registro con evidencia, seguimiento por estados, ejecución periódica y alertas al administrador. Facebook/TikTok pendientes (anti-scraping) |
 | **CU7** | Gestión de Análisis Métricas de Impacto | RF13 | `metrica_publicacion`, `seguidores_red` | ✅ **Completo**: mediciones manuales (cualquier canal) y captura automática de YouTube; indicadores por pauta, campaña (incluye costo por resultado) y red social |
-| **CU8** | Reportes y Estadísticas | RF13 | consultas agregadas sobre todas las tablas | ⚪ Pendiente |
+| **CU8** | Reportes y Estadísticas | RF13 | todas (solo lectura) | ✅ **Completo**: tablero general y 8 reportes por periodo (comercial, servicios, ocupación, material, impacto, redes, monitoreo y vista del cliente) con gráficos de barras en el correo |
 
 ### Resumen de los requisitos
 - **RF01** Registrar, consultar, modificar, activar e inactivar usuarios (incluye encargados de unidades).
@@ -198,7 +198,8 @@ proyecto-mail/
     │   ├── PMaterial                                                                  (CU4)
     │   ├── PCanal, PEspacio, PPauta, PNotificacion                                    (CU5)
     │   ├── PTermino, PScraping (manual + periódico), PPagina                          (CU6)
-    │   └── PMetrica (registro + captura), PAnalisis (indicadores)                     (CU7)
+    │   ├── PMetrica (registro + captura), PAnalisis (indicadores)                     (CU7)
+    │   └── PReporte (tablas + gráficos de barras con Html.grafico)                    (CU8)
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
@@ -213,8 +214,9 @@ proyecto-mail/
     │   │   destinatarios de avisos), NNotificacion, ResultadoPauta                  (CU5)
     │   ├── NTermino, NScraping (coincidencia de términos, comparación con oficiales,
     │   │   alertas), NPagina (estados), ResultadoScraping                           (CU6)
-    │   └── NMetrica (coherencia, captura YouTube), NAnalisis (cálculo de indicadores),
-    │       Analisis                                                                 (CU7)
+    │   ├── NMetrica (coherencia, captura YouTube), NAnalisis (cálculo de indicadores),
+    │   │   Analisis                                                                 (CU7)
+    │   └── NReporte (agrupa y calcula todos los indicadores del periodo), Reporte   (CU8)
     │
     └── datos/                     ══════ CAPA DE DATOS ══════
         ├── Conexion.java          ← JDBC + ayudantes: consultar, consultarUno, valor, ejecutar, insertar,
@@ -226,7 +228,8 @@ proyecto-mail/
         ├── DCanal, DEspacio, DPauta (pauta + espacio + avisos en transacción), DNotificacion (CU5)
         ├── DTermino, DEjecucion, DPagina (página + detecciones + avisos en transacción)  (CU6)
         ├── DYoutube (fuente externa: búsqueda y estadísticas públicas de YouTube) + Json  (CU6, CU7)
-        └── DMetrica (mediciones; última medición por pauta con LATERAL)                (CU7)
+        ├── DMetrica (mediciones; última medición por pauta con LATERAL)                (CU7)
+        └── DReporte (solo extrae las filas de un periodo; no agrupa ni calcula)        (CU8)
 ```
 
 ---
@@ -467,6 +470,16 @@ documentación se escribe siempre en camelCase.
 | `anaPau` | id_programacion — tasa de interacción, CTR, frecuencia, viralidad y crecimiento respecto a la medición anterior | `anaPau["5"]` |
 | `anaCam` | id_campania — totales, indicadores, **rendimiento por canal** y **costo por resultado** (CPM, costo por clic, costo por interacción) sobre la inversión de la proforma | `anaCam["2"]` |
 | `anaRed` | id_canal — crecimiento de seguidores (total, %, diario) e interacción de las pautas publicadas en la red | `anaRed["1"]` |
+| **CU8 · Reportes y estadísticas** (RF13) — todos reciben fecha_desde y fecha_hasta (`DD/MM/AAAA`; `*` = sin límite) e incluyen indicadores, tablas y **gráficos de barras** | | |
+| `tabGen` | Tablero general: ingresos, proformas, conversión, campañas activas, pautas, impresiones, interacción, material pendiente y páginas no autorizadas nuevas | `tabGen["01/01/2026","31/12/2026"]` |
+| `repCom` | Comercial: proformas por estado (incluye **vencidas**), ingresos por mes, tasa de conversión, ticket promedio y principales clientes | `repCom["01/10/2026","31/10/2026"]` |
+| `repSer` | Servicios y paquetes más vendidos (cantidad, monto y % del total) | `repSer["*","*"]` |
+| `repPau` | Ocupación del calendario por canal (ocupados/disponibles/bloqueados), pautas programadas/publicadas y tasa de cancelación | `repPau["01/12/2026","31/12/2026"]` |
+| `repMat` | Material por estado y tipo, tasa de aprobación, versiones promedio y revisiones por revisor | `repMat["*","*"]` |
+| `repImp` | Impacto y alcance por canal y por campaña, y las 5 pautas con más interacción | `repImp["01/01/2026","31/12/2026"]` |
+| `repRed` | Crecimiento de seguidores de cada red social en el periodo | `repRed["01/01/2026","31/12/2026"]` |
+| `repMon` | Monitoreo (CU6): ejecuciones, detecciones y páginas nuevas por plataforma, término y estado | `repMon["*","*"]` |
+| `repCli` | id_empresa, fecha_desde, fecha_hasta — **vista del cliente**: su inversión, sus campañas y su impacto (CPM, costo por interacción) | `repCli["1","*","*"]` |
 
 **Flujo típico CU1:**
 1. `insRol["Director",""]`, `insRol["Encargado de Unidad",""]`, `insRol["Cliente",""]` → crear los perfiles.
@@ -556,6 +569,23 @@ Indicadores (calculados en `NAnalisis`; base = alcance si se conoce, si no impre
 
 En campañas y redes se usa la **última medición** de cada pauta (las mediciones son acumuladas) y, en el agregado, cada
 pauta aporta su alcance o, si no lo informa (YouTube), sus impresiones. Si un denominador es 0 el indicador sale "sin datos".
+
+**CU8 — cómo se arma un reporte:**
+- `DReporte` solo **extrae las filas del periodo** (proformas por fecha de emisión, campañas que se superponen con el
+  periodo, espacios y pautas por fecha, material por fecha de carga, detecciones por fecha, etc.).
+- `NReporte` **agrupa y calcula** todo (incluida la regla "pendiente con validez vencida = vencida"):
+
+| Indicador | Fórmula |
+|---|---|
+| Tasa de conversión | aprobadas / (aprobadas + rechazadas + vencidas) × 100 (las pendientes vigentes no cuentan) |
+| Ticket promedio | ingresos aprobados / proformas aprobadas |
+| Ocupación | espacios ocupados / espacios del calendario × 100 |
+| Tasa de cancelación | pautas canceladas / pautas del periodo × 100 |
+| Tasa de aprobación de material | aprobados / (aprobados + rechazados) × 100 |
+| Tasa de interacción | interacciones / audiencia (alcance de cada pauta o, si no lo informa, sus impresiones) × 100 |
+
+- `PReporte` arma tablas y **gráficos de barras** con `Html.grafico` (tablas con estilos en línea: se ven en Gmail sin
+  imágenes ni JavaScript). `repCli` es la vista pensada para enviar a cada empresa cliente.
 
 ---
 
@@ -712,7 +742,7 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 | **CU5** ✅ | Implementado (ver sección 6). | La notificación se guarda en la misma transacción que la pauta; el correo lo envía la presentación (`Notificador`) y si falla el aviso igual queda en el sistema. |
 | **CU6** ✅ (YouTube) | Implementado (ver sección 6). Pendiente: Facebook y TikTok. | Agregar otra plataforma = una fuente `D<Plataforma>` que devuelva las mismas filas que `DYoutube` y su nombre en `NScraping.SOPORTADAS`. |
 | **CU7** ✅ | Implementado (ver sección 6). | Los indicadores se calculan en negocio (`NAnalisis`); SQL solo trae la última medición de cada pauta. Los reportes globales por periodo quedan para el CU8. |
-| **CU8** | `repIng` (ingresos por proformas/periodo) · `repCam` (campañas por estado) · `repMat` (material aprobado/rechazado) · `repPau` (pautas por canal) · `repMet` (impacto) · `repPag` (páginas detectadas) | Reportes = consultas agregadas → tablas HTML. Parámetros típicos: fecha_inicio, fecha_fin (`DD/MM/YYYY`). |
+| **CU8** ✅ | Implementado (ver sección 6). | Datos solo filtra por periodo; negocio agrupa y calcula; presentación arma tablas y gráficos. |
 
 ---
 
