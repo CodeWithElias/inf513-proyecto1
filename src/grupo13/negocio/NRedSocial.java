@@ -6,6 +6,7 @@ import grupo13.datos.DUnidad;
 import grupo13.datos.DUsuario;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,7 +23,13 @@ public class NRedSocial {
     /** Busca por nombre, plataforma, URL, responsable o unidad. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
-            return datos.listar(filtro);
+            List<String[]> filas = new ArrayList<>();
+            for (String[] f : datos.listar(filtro)) {
+                if (Acceso.esSuRed(f[0])) {
+                    filas.add(f);
+                }
+            }
+            return filas;
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
@@ -139,6 +146,7 @@ public class NRedSocial {
         if (f == null) {
             throw new NegocioException("No existe una red social con ID " + id + ".");
         }
+        Acceso.exigirRed(String.valueOf(id));
         return f;
     }
 

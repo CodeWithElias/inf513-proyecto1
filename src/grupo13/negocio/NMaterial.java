@@ -6,6 +6,7 @@ import grupo13.datos.DRepresentante;
 import grupo13.datos.DUsuario;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,6 +16,7 @@ import java.util.TreeSet;
  * CU4 / RF08 y RF09: carga y validación de material publicitario.
  * Reglas:
  *  - Solo un representante (activo) de la empresa de la campaña carga material, y solo en campañas activas o pausadas.
+ *    Quien carga y quien revisa es el remitente del correo (RF02). Un cliente solo accede al material de su empresa.
  *  - Tipos: video, audio, imagen, banner, texto. El formato se toma de la extensión del archivo y debe corresponder al tipo.
  *  - Video y audio exigen duración, que no puede superar la duración máxima de las tarifas contratadas en la campaña.
  *  - El tipo texto exige el texto de la publicación.
@@ -51,6 +53,7 @@ public class NMaterial {
     private static final int VERSION = 8;
     private static final int ESTADO = 9;
     private static final int ID_CAMPANIA = 13;
+    private static final int ID_EMPRESA = 14;
 
     private final DMaterial datos = new DMaterial();
     private final DCampania campania = new DCampania();
@@ -60,7 +63,13 @@ public class NMaterial {
     /** Busca por archivo, tipo, estado, campaña o empresa. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
-            return datos.listar(filtro);
+            List<String[]> filas = new ArrayList<>();
+            for (String[] f : datos.listar(filtro)) {
+                if (Sesion.esDeSuEmpresa(f[ID_EMPRESA])) {
+                    filas.add(f);
+                }
+            }
+            return filas;
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
@@ -84,12 +93,12 @@ public class NMaterial {
         }
     }
 
-    /** RF08: el representante carga material a una campaña de su empresa. Devuelve el ID generado. */
-    public int insertar(String idCampania, String idUsuario, String tipo, String nombreArchivo, String url,
+    /** RF08: el representante (remitente) carga material a una campaña de su empresa. Devuelve el ID generado. */
+    public int insertar(String idCampania, String tipo, String nombreArchivo, String url,
                         String duracionSeg, String texto) throws NegocioException {
         try {
             int camp = Validar.id(idCampania, "id_campania");
-            int usu = Validar.id(idUsuario, "id_usuario");
+            int usu = Sesion.usuario().getIdUsuario();
             String t = validarTipo(tipo);
 
             String[] c = campania.estadoYEmpresa(camp);
@@ -108,7 +117,7 @@ public class NMaterial {
             }
             Integer empresaUsuario = representante.empresaDe(usu);
             if (empresaUsuario == null || !String.valueOf(empresaUsuario).equals(c[1])) {
-                throw new NegocioException("El usuario " + usu + " no es representante de la empresa que contrató la campaña "
+                throw new NegocioException("Usted no es representante de la empresa que contrató la campaña "
                         + camp + "; solo sus representantes pueden cargar material.");
             }
             Contenido m = validarContenido(t, nombreArchivo, url, duracionSeg, texto, camp);
@@ -175,25 +184,26 @@ public class NMaterial {
     }
 
     /** RF09: aprobar (observaciones opcionales). */
-    public void aprobar(String idMaterial, String idRevisor, String observaciones) throws NegocioException {
-        revisar(idMaterial, idRevisor, observaciones, APROBADO, false);
+    public void aprobar(String idMaterial, String observaciones) throws NegocioException {
+        revisar(idMaterial, observaciones, APROBADO, false);
     }
 
     /** RF09: rechazar definitivamente (observaciones obligatorias). */
-    public void rechazar(String idMaterial, String idRevisor, String observaciones) throws NegocioException {
-        revisar(idMaterial, idRevisor, observaciones, RECHAZADO, true);
+    public void rechazar(String idMaterial, String observaciones) throws NegocioException {
+        revisar(idMaterial, observaciones, RECHAZADO, true);
     }
 
     /** RF09: solicitar correcciones (observaciones obligatorias); el cliente luego sube una nueva versión. */
-    public void solicitarCorreccion(String idMaterial, String idRevisor, String observaciones) throws NegocioException {
-        revisar(idMaterial, idRevisor, observaciones, CORRECCION, true);
+    public void solicitarCorreccion(String idMaterial, String observaciones) throws NegocioException {
+        revisar(idMaterial, observaciones, CORRECCION, true);
     }
 
-    private void revisar(String idMaterial, String idRevisor, String observaciones, String resultado,
+    /** El revisor es el remitente: personal de Canal 11 (no representante de una empresa). */
+    private void revisar(String idMaterial, String observaciones, String resultado,
                          boolean exigeObservaciones) throws NegocioException {
         try {
             int id = Validar.id(idMaterial, "id_material");
-            int rev = Validar.id(idRevisor, "id_revisor");
+            int rev = Sesion.usuario().getIdUsuario();
             String obs = exigeObservaciones
                     ? Validar.texto(observaciones, "observaciones", TEXTO_MAX)
                     : Validar.textoOpcional(observaciones, "observaciones", TEXTO_MAX);
@@ -209,7 +219,7 @@ public class NMaterial {
                 throw new NegocioException("El usuario " + rev + " está inactivo.");
             }
             if (representante.empresaDe(rev) != null) {
-                throw new NegocioException("El usuario " + rev + " es representante de una empresa; la revisión la hace el personal de Canal 11.");
+                throw new NegocioException("Usted es representante de una empresa; la revisión la hace el personal de Canal 11.");
             }
             datos.registrarRevision(id, resultado, resultado, obs, rev);
         } catch (SQLException e) {
@@ -286,11 +296,13 @@ public class NMaterial {
         return nombre.substring(punto + 1).toLowerCase();
     }
 
+    /** Material existente y accesible: un cliente solo accede al de su empresa. */
     private String[] buscar(int id) throws SQLException, NegocioException {
         String[] fila = datos.obtener(id);
         if (fila == null) {
             throw new NegocioException("No existe un material con ID " + id + ".");
         }
+        Sesion.exigirEmpresa(fila[ID_EMPRESA], "el material " + id);
         return fila;
     }
 }

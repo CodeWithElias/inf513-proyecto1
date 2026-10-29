@@ -6,12 +6,13 @@ import java.util.List;
 
 /**
  * Capa de datos de campania (proforma 1 - 0..1 campania).
- * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total.
+ * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total, id_empresa.
  */
 public class DCampania {
 
     private static final String SELECT =
-            "SELECT c.id_campania, c.nombre, c.fecha_inicio, c.fecha_fin, c.estado, p.nro_proforma, e.razon_social, p.total"
+            "SELECT c.id_campania, c.nombre, c.fecha_inicio, c.fecha_fin, c.estado, p.nro_proforma, e.razon_social, p.total,"
+            + " p.id_empresa"
             + " FROM campania c"
             + " JOIN proforma p ON p.id_proforma = c.id_proforma"
             + " LEFT JOIN empresa_anunciante e ON e.id_empresa = p.id_empresa";

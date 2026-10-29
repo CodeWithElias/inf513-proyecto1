@@ -118,6 +118,7 @@ public class NEmpresa {
         if (fila == null) {
             throw new NegocioException("No existe una empresa con ID " + id + ".");
         }
+        Sesion.exigirEmpresa(String.valueOf(id), "la empresa " + id);
         return fila;
     }
 

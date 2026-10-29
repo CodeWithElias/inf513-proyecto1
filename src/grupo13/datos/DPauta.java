@@ -8,14 +8,14 @@ import java.util.List;
  * Capa de datos de programacion_pauta. Las operaciones que tocan el espacio y las notificaciones van en una
  * transacción; los estados y el contenido de los avisos los decide la capa de negocio.
  * Fila: id_programacion, campania, empresa, canal, tipo_canal, fecha_programacion, archivo, tipo_material, estado,
- *   url_publicacion, programado_por, id_espacio, id_detalle, id_material, id_canal.
+ *   url_publicacion, programado_por, id_espacio, id_detalle, id_material, id_canal, id_empresa.
  */
 public class DPauta {
 
     private static final String SELECT =
             "SELECT pp.id_programacion, cam.nombre AS campania, e.razon_social, c.nombre AS canal, c.tipo,"
             + " pp.fecha_programacion, m.nombre_archivo, m.tipo, pp.estado, pp.url_publicacion,"
-            + " u.nombre_completo AS programado_por, pp.id_espacio, pp.id_detalle, pp.id_material, esp.id_canal"
+            + " u.nombre_completo AS programado_por, pp.id_espacio, pp.id_detalle, pp.id_material, esp.id_canal, p.id_empresa"
             + " FROM programacion_pauta pp"
             + " JOIN material_publicitario m ON m.id_material = pp.id_material"
             + " JOIN campania cam ON cam.id_campania = m.id_campania"

@@ -20,6 +20,8 @@ import java.util.List;
  *  - subtotal = Σ subtotal de los ítems; total = max(subtotal − descuento, 0).
  *  - Cada ítem congela su precio unitario (si luego cambia la tarifa, la proforma no cambia).
  *  - Número: PRO-AAAA-NNNNN.
+ *  - Propiedad (RF02): el personal de Canal 11 ve todas; un cliente solo las de su empresa; un visitante solo las de
+ *    su correo (su registro de visitante se crea solo en la primera cotización). Solo el personal aplica descuentos.
  * Fila de proforma (la que devuelve esta clase): id_proforma, nro_proforma, fecha_emision, fecha_validez,
  *   razon_social_empresa, nombre_visitante, subtotal, descuento, total, estado, items, id_empresa.
  * Fila de ítem: id_detalle, id_tarifa, servicio, unidad, unidad_cobro, id_paquete, paquete, cantidad, frecuencia,
@@ -43,6 +45,7 @@ public class NProforma {
     private static final int ESTADO = 9;
     private static final int ITEMS = 10;
     private static final int ID_EMPRESA = 11;
+    private static final int ID_VISITANTE = 12;
 
     private final DProforma datos = new DProforma();
     private final DEmpresa empresa = new DEmpresa();
@@ -54,8 +57,11 @@ public class NProforma {
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
+            Integer suVisitante = visitanteDelActor(false);
             for (String[] f : datos.listar(filtro)) {
-                filas.add(conEstadoActual(f));
+                if (esSuya(f, suVisitante)) {
+                    filas.add(conEstadoActual(f));
+                }
             }
             return filas;
         } catch (SQLException e) {
@@ -65,7 +71,7 @@ public class NProforma {
 
     public String[] obtener(String idProforma) throws NegocioException {
         try {
-            return conEstadoActual(buscar(Validar.id(idProforma, "id_proforma")));
+            return conEstadoActual(exigirSuya(buscar(Validar.id(idProforma, "id_proforma"))));
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
@@ -74,17 +80,40 @@ public class NProforma {
     public List<String[]> listarItems(String idProforma) throws NegocioException {
         try {
             int id = Validar.id(idProforma, "id_proforma");
-            buscar(id);
+            exigirSuya(buscar(id));
             return datos.detalles(id);
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
     }
 
-    /** Exactamente uno de empresa / visitante. diasValidez vacío = 15; descuento en Bs (vacío = 0). */
+    /**
+     * Exactamente uno de empresa / visitante. diasValidez vacío = 15; descuento en Bs (vacío = 0).
+     * Cliente: la empresa es la suya. Visitante: id_empresa e id_visitante van vacíos (se usa su correo).
+     */
     public int insertar(String idEmpresa, String idVisitante, String diasValidez, String descuento)
             throws NegocioException {
         try {
+            if (!Sesion.accesoTotal()) {
+                Actor a = Sesion.actual();
+                if (!descuento.isEmpty() && Validar.monto(descuento, "descuento").signum() != 0) {
+                    throw new NegocioException("Solo el personal de Canal 11 puede aplicar descuentos; deje el descuento vacío.");
+                }
+                if (a.es(Actor.CLIENTE)) {
+                    if (a.getIdEmpresa() == null) {
+                        throw new NegocioException("Su usuario no está asociado a ninguna empresa; solicite a Canal 11 que lo registre.");
+                    }
+                    if (!idVisitante.isEmpty() || (!idEmpresa.isEmpty() && !idEmpresa.equals(String.valueOf(a.getIdEmpresa())))) {
+                        throw new NegocioException("Solo puede cotizar para su empresa (ID " + a.getIdEmpresa() + ").");
+                    }
+                    idEmpresa = String.valueOf(a.getIdEmpresa());
+                } else {
+                    if (!idEmpresa.isEmpty() || !idVisitante.isEmpty()) {
+                        throw new NegocioException("Deje vacíos id_empresa e id_visitante: la proforma se registra a su correo.");
+                    }
+                    idVisitante = String.valueOf(visitanteDelActor(true));
+                }
+            }
             Integer emp = Validar.idOpcional(idEmpresa, "id_empresa");
             Integer vis = Validar.idOpcional(idVisitante, "id_visitante");
             int dias = diasValidez.isEmpty() ? DIAS_VALIDEZ : Validar.id(diasValidez, "dias_validez");
@@ -247,9 +276,9 @@ public class NProforma {
         return datos.tieneCampania(id);
     }
 
-    /** La proforma debe estar pendiente (y vigente si 'vigente'). Devuelve su fila cruda. */
+    /** La proforma debe ser accesible, estar pendiente (y vigente si 'vigente'). Devuelve su fila cruda. */
     private String[] exigirPendiente(int id, boolean vigente) throws SQLException, NegocioException {
-        String[] p = buscar(id);
+        String[] p = exigirSuya(buscar(id));
         if (!PENDIENTE.equals(p[ESTADO])) {
             throw new NegocioException("La proforma " + id + " está " + p[ESTADO] + "; solo se pueden cambiar las pendientes.");
         }
@@ -257,6 +286,40 @@ public class NProforma {
             throw new NegocioException("La proforma " + id + " está vencida. Extienda primero su fecha de validez.");
         }
         return p;
+    }
+
+    // ===== Propiedad (RF02) =====
+
+    /** id del visitante con el correo del actor; con 'crear' lo registra si no existe. null si no corresponde. */
+    private Integer visitanteDelActor(boolean crear) throws SQLException {
+        Actor a = Sesion.actual();
+        if (a == null || a.getIdUsuario() != null) {
+            return null;
+        }
+        Integer id = visitante.buscarPorEmail(a.getEmail());
+        if (id == null && crear) {
+            String nombre = a.getEmail().contains("@") ? a.getEmail().substring(0, a.getEmail().indexOf('@')) : a.getEmail();
+            id = visitante.insertar(nombre, a.getEmail(), "");
+        }
+        return id;
+    }
+
+    private static boolean esSuya(String[] f, Integer suVisitante) {
+        if (Sesion.accesoTotal()) {
+            return true;
+        }
+        Actor a = Sesion.actual();
+        if (a.es(Actor.CLIENTE)) {
+            return Sesion.esDeSuEmpresa(f[ID_EMPRESA]);
+        }
+        return suVisitante != null && String.valueOf(suVisitante).equals(f[ID_VISITANTE]);
+    }
+
+    private String[] exigirSuya(String[] f) throws SQLException, NegocioException {
+        if (!esSuya(f, visitanteDelActor(false))) {
+            throw new NegocioException("No tiene acceso a la proforma " + f[0] + ".");
+        }
+        return f;
     }
 
     private String[] buscar(int id) throws SQLException, NegocioException {

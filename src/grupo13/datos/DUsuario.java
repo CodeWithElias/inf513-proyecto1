@@ -31,6 +31,20 @@ public class DUsuario {
         return Conexion.consultarUno(SELECT + " WHERE u.id_usuario = ?", id);
     }
 
+    /**
+     * Usuario por correo (sin distinguir mayúsculas), o null.
+     * Fila: id_usuario, nombre_completo, email, rol, usuario_activo, id_unidad, rol_activo.
+     */
+    public String[] porEmail(String email) throws SQLException {
+        return Conexion.consultarUno("SELECT u.id_usuario, u.nombre_completo, u.email, r.nombre, u.activo, u.id_unidad, r.activo"
+                + " FROM usuario u JOIN rol r ON r.id_rol = u.id_rol WHERE lower(u.email) = lower(?)", email);
+    }
+
+    /** Registra la fecha y hora del último acceso (cada correo que envía). */
+    public int registrarAcceso(int id) throws SQLException {
+        return Conexion.ejecutar("UPDATE usuario SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id_usuario = ?", id);
+    }
+
     /** null = no existe, true/false = valor de activo. */
     public Boolean estaActivo(int id) throws SQLException {
         return Conexion.estaActivo("usuario", "id_usuario", id);

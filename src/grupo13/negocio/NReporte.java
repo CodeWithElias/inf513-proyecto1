@@ -412,6 +412,7 @@ public class NReporte {
             if (emp == null) {
                 throw new NegocioException("No existe una empresa con ID " + id + ".");
             }
+            Sesion.exigirEmpresa(String.valueOf(id), "el reporte de la empresa " + id);
             LocalDate[] p = periodo(desde, hasta);
             List<String[]> proformas = datos.proformas(p[0], p[1], id);
             List<String[]> campanias = datos.campanias(p[0], p[1], id);

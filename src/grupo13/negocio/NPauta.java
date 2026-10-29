@@ -70,7 +70,13 @@ public class NPauta {
     /** Busca por campaña, empresa, canal o estado. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
-            return datos.listar(filtro);
+            List<String[]> filas = new ArrayList<>();
+            for (String[] f : datos.listar(filtro)) {
+                if (Acceso.puedeVerPauta(f)) {
+                    filas.add(f);
+                }
+            }
+            return filas;
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
@@ -78,20 +84,22 @@ public class NPauta {
 
     public String[] obtener(String idProgramacion) throws NegocioException {
         try {
-            return buscar(Validar.id(idProgramacion, "id_programacion"));
+            String[] pp = buscar(Validar.id(idProgramacion, "id_programacion"));
+            Acceso.exigirPauta(pp);
+            return pp;
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }
     }
 
-    /** RF10: programa un material aprobado en un espacio libre, con cargo a un ítem contratado. */
-    public ResultadoPauta programar(String idDetalle, String idMaterial, String idEspacio, String idUsuario)
+    /** RF10: el remitente (personal de Canal 11) programa material aprobado en un espacio libre, con cargo a un ítem contratado. */
+    public ResultadoPauta programar(String idDetalle, String idMaterial, String idEspacio)
             throws NegocioException {
         try {
             int det = Validar.id(idDetalle, "id_detalle");
             int mat = Validar.id(idMaterial, "id_material");
             int esp = Validar.id(idEspacio, "id_espacio");
-            int usu = Validar.id(idUsuario, "id_usuario");
+            int usu = Sesion.usuario().getIdUsuario();
 
             validarPersonal(usu);
             String[] m = material.obtener(mat);

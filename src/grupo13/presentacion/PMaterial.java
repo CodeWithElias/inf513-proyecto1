@@ -10,12 +10,12 @@ import java.util.List;
 public class PMaterial {
 
     public static final String[] PARAMS_INSERTAR =
-            {"id_campania", "id_usuario", "tipo", "nombre_archivo", "url_archivo", "duracion_seg", "texto_publicacion"};
+            {"id_campania", "tipo", "nombre_archivo", "url_archivo", "duracion_seg", "texto_publicacion"};
     public static final String[] PARAMS_MODIFICAR =
             {"id_material", "tipo", "nombre_archivo", "url_archivo", "duracion_seg", "texto_publicacion"};
     public static final String[] PARAMS_VERSION =
             {"id_material", "nombre_archivo", "url_archivo", "duracion_seg", "texto_publicacion"};
-    public static final String[] PARAMS_REVISION = {"id_material", "id_revisor", "observaciones"};
+    public static final String[] PARAMS_REVISION = {"id_material", "observaciones"};
 
     private static final String[] COLUMNAS = {"ID", "Campaña", "Empresa", "Tipo", "Archivo", "Formato", "URL",
             "Duración (s)", "Versión", "Estado", "Fecha de carga", "Subido por"};
@@ -33,9 +33,9 @@ public class PMaterial {
         return Respuesta.exito("Material " + p.get(0), Html.pagina("Material " + p.get(0), ficha(p.get(0), true)));
     }
 
-    /** insMat["id_campania","id_usuario","tipo","nombre_archivo","url_archivo","duracion_seg","texto_publicacion"] */
+    /** insMat["id_campania","tipo","nombre_archivo","url_archivo","duracion_seg","texto_publicacion"] (carga el remitente) */
     public Respuesta insertar(List<String> p) throws NegocioException {
-        int id = negocio.insertar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5), p.get(6));
+        int id = negocio.insertar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5));
         return Vista.exito("El material fue cargado con ID " + id + " y quedó pendiente de revisión por Canal 11.",
                 ficha(String.valueOf(id), false));
     }
@@ -59,22 +59,22 @@ public class PMaterial {
         return Vista.exito("El material " + p.get(0) + " fue retirado.", ficha(p.get(0), false));
     }
 
-    /** aprMat["id","id_revisor","observaciones"] */
+    /** aprMat["id","observaciones"] (revisa el remitente) */
     public Respuesta aprobar(List<String> p) throws NegocioException {
-        negocio.aprobar(p.get(0), p.get(1), p.get(2));
+        negocio.aprobar(p.get(0), p.get(1));
         return Vista.exito("El material " + p.get(0) + " fue aprobado. Ya puede programarse en la pauta (CU5).",
                 ficha(p.get(0), true));
     }
 
-    /** recMat["id","id_revisor","observaciones"] */
+    /** recMat["id","observaciones"] (revisa el remitente) */
     public Respuesta rechazar(List<String> p) throws NegocioException {
-        negocio.rechazar(p.get(0), p.get(1), p.get(2));
+        negocio.rechazar(p.get(0), p.get(1));
         return Vista.exito("El material " + p.get(0) + " fue rechazado.", ficha(p.get(0), true));
     }
 
-    /** corMat["id","id_revisor","observaciones"] */
+    /** corMat["id","observaciones"] (revisa el remitente) */
     public Respuesta solicitarCorreccion(List<String> p) throws NegocioException {
-        negocio.solicitarCorreccion(p.get(0), p.get(1), p.get(2));
+        negocio.solicitarCorreccion(p.get(0), p.get(1));
         return Vista.exito("Se solicitaron correcciones para el material " + p.get(0) + ". El cliente debe subir una nueva"
                 + " versión con subMat[\"" + p.get(0) + "\",\"nombre_archivo\",\"url\",\"duracion\",\"texto\"].", ficha(p.get(0), true));
     }

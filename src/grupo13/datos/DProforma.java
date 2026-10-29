@@ -10,14 +10,15 @@ import java.util.function.IntFunction;
  * Capa de datos de proforma y detalle_proforma.
  * Los totales y el número de proforma los calcula la capa de negocio; aquí solo se guardan (en transacción).
  * Fila: id_proforma, nro_proforma, fecha_emision, fecha_validez, razon_social_empresa, nombre_visitante,
- *       subtotal, descuento, total, estado, items, id_empresa.
+ *       subtotal, descuento, total, estado, items, id_empresa, id_visitante.
  */
 public class DProforma {
 
     private static final String SELECT =
             "SELECT p.id_proforma, p.nro_proforma, p.fecha_emision, p.fecha_validez, e.razon_social, v.nombre,"
             + " p.subtotal, p.descuento, p.total, p.estado,"
-            + " (SELECT count(*) FROM detalle_proforma d WHERE d.id_proforma = p.id_proforma) AS items, p.id_empresa"
+            + " (SELECT count(*) FROM detalle_proforma d WHERE d.id_proforma = p.id_proforma) AS items, p.id_empresa,"
+            + " p.id_visitante"
             + " FROM proforma p"
             + " LEFT JOIN empresa_anunciante e ON e.id_empresa = p.id_empresa"
             + " LEFT JOIN visitante v ON v.id_visitante = p.id_visitante";

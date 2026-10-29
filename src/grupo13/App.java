@@ -20,7 +20,8 @@ import java.time.format.DateTimeFormatter;
  * Servidor de comandos vía correo electrónico.
  *
  *   java -cp ... grupo13.App                    -> revisa el buzón cada N segundos y ejecuta el scraping cada N horas
- *   java -cp ... grupo13.App --probar "ASUNTO"  -> ejecuta un comando sin correo (pruebas)
+ *   java -cp ... grupo13.App --probar "ASUNTO"  -> ejecuta un comando sin correo, como el primer administrador activo
+ *   java -cp ... grupo13.App --probar --como correo@x.com "ASUNTO"  -> lo ejecuta como ese remitente
  */
 public class App {
 
@@ -38,8 +39,21 @@ public class App {
 
         if (args.length >= 2 && args[0].equals("--probar")) {
             Notificador.desactivar(); // en pruebas los avisos (RF11) se registran pero no se envían por correo
-            String comando = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
-            Respuesta r = app.despachador.procesar(comando);
+            int desde = 1;
+            String remitente;
+            if (args.length >= 4 && args[1].equals("--como")) { // --probar --como correo@x.com COMANDO
+                remitente = args[2];
+                desde = 3;
+            } else {
+                remitente = app.despachador.remitentePorDefecto();
+                if (remitente == null) {
+                    System.out.println("No hay un administrador activo; use --probar --como correo@x.com COMANDO");
+                    return;
+                }
+            }
+            String comando = String.join(" ", java.util.Arrays.copyOfRange(args, desde, args.length));
+            System.out.println("Remitente: " + remitente);
+            Respuesta r = app.despachador.procesar(remitente, comando);
             System.out.println("Asunto respuesta: " + r.getTitulo());
             System.out.println(r.getHtml());
             return;
@@ -101,7 +115,7 @@ public class App {
             return;
         }
 
-        Respuesta asunto = despachador.procesar(correo.getAsunto());
+        Respuesta asunto = despachador.procesar(correo.getRemitente(), correo.getAsunto()); // RF02: el remitente identifica al usuario
         try {
             smtp.enviar(correo.getRemitente(), asunto.getTitulo() + " - " + correo.getAsunto(), asunto.getHtml());
             log("  Respondido: " + asunto.getTitulo());

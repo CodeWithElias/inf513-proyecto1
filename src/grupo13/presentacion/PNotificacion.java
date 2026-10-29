@@ -13,10 +13,10 @@ public class PNotificacion {
 
     private final NNotificacion negocio = new NNotificacion();
 
-    /** lisNot["id_usuario"] */
+    /** lisNot["*"] = mis notificaciones; lisNot["id_usuario"] = las de otro usuario (solo personal de Canal 11) */
     public Respuesta listar(List<String> p) throws NegocioException {
-        String titulo = "Notificaciones del usuario " + p.get(0);
-        return Vista.listado(titulo, titulo, COLUMNAS, negocio.listar(p.get(0)));
+        String titulo = p.get(0).equals("*") ? "Mis notificaciones" : "Notificaciones del usuario " + p.get(0);
+        return Vista.listado(titulo, titulo, COLUMNAS, negocio.listar(Vista.filtro(p.get(0))));
     }
 
     /** leeNot["id_notificacion"] */

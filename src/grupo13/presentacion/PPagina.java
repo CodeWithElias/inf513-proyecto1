@@ -27,9 +27,9 @@ public class PPagina {
                 Html.pagina("Página no autorizada " + p.get(0), detalle(p.get(0))));
     }
 
-    /** modPag["id_pagina","estado","id_usuario"] */
+    /** modPag["id_pagina","estado"] (revisa el remitente) */
     public Respuesta revisar(List<String> p) throws NegocioException {
-        negocio.revisar(p.get(0), p.get(1), p.get(2));
+        negocio.revisar(p.get(0), p.get(1));
         return Vista.exito("La página " + p.get(0) + " pasó a estado " + p.get(1).toLowerCase() + ".", detalle(p.get(0)));
     }
 

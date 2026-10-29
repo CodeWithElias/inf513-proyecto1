@@ -43,7 +43,7 @@ public class NMetrica {
     public List<String[]> listar(String idProgramacion) throws NegocioException {
         try {
             int id = Validar.id(idProgramacion, "id_programacion");
-            buscarPauta(id);
+            Acceso.exigirPauta(buscarPauta(id));
             return datos.listarPorPauta(id);
         } catch (SQLException e) {
             throw NegocioException.bd(e);

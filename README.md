@@ -75,7 +75,7 @@ La contraseña es la del grupo y vive **solo** en `config.properties` (ignorado 
 ### Requisitos funcionales → casos de uso
 | CU | Nombre | Requisitos | Tablas principales | Estado |
 |---|---|---|---|---|
-| **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados) y clientes (representantes). Pendiente opcional: permisos por rol (ver nota RF02) |
+| **CU1** | Gestión de Usuarios (Director, Encargado de Unidad Universitaria, Cliente) | RF01, RF02 | `usuario`, `rol`, `unidad_universitaria`, `representante` | ✅ **Completo**: usuarios, roles, unidades (encargados), clientes (representantes) y **permisos por rol** con identificación por el correo del remitente (ver sección 6, *Seguridad*) |
 | **CU2** | Gestión de Cuentas de Redes Sociales Institucionales | RF03 | `canal_difusion`, `red_social`, `plataforma`, `seguidores_red` | ✅ **Completo**: plataformas, redes oficiales por unidad y responsable, métricas de seguidores, bajas lógicas y reactivación |
 | **CU3** | Gestión de Oferta Comercial, Clientes y Generación de Cotizaciones | RF04, RF05, RF06, RF07 | `empresa_anunciante`, `representante`, `visitante`, `servicio_publicitario`, `tarifa`, `paquete`, `paquete_item`, `proforma`, `detalle_proforma`, `campania` | ✅ **Completo**: empresas, visitantes, servicios, tarifario con vigencia, paquetes con descuento, proformas con cálculo automático y campañas |
 | **CU4** | Gestión de Cargas, Validar Material Publicitario | RF08, RF09 | `material_publicitario`, `revision_material` | ✅ **Completo**: carga por URL con validación técnica (formato por tipo, duración contratada), revisión por Canal 11 (aprobar / rechazar / pedir corrección), versiones e historial |
@@ -189,7 +189,8 @@ proyecto-mail/
     │   │   ├── Despachador.java   ← REGISTRO DE TODOS LOS COMANDOS (→ métodos P*) + help + errores
     │   │   ├── Accion.java        ← Respuesta ejecutar(List<String>) throws NegocioException
     │   │   ├── Respuesta.java     ← exito/error + título + HTML
-    │   │   └── ComandoException   ← error del protocolo de comandos (formato, comando inexistente)
+    │   │   ├── ComandoException   ← error del protocolo de comandos (formato, comando inexistente)
+    │   │   └── Permisos.java      ← RF02: matriz de comandos por rol y operaciones críticas (conf)
     │   ├── Html.java              ← pagina, tabla, ficha, esc y formato (t/f, fechas ISO, NULL)
     │   ├── Vista.java             ← respuestas típicas (listado, registro, éxito) y filtro "*"
     │   ├── PUsuario, PRol, PUnidad, PRepresentante            (CU1)
@@ -203,6 +204,7 @@ proyecto-mail/
     │
     ├── negocio/                   ══════ CAPA DE NEGOCIO ══════
     │   ├── NegocioException.java  ← única excepción que ve la presentación
+    │   ├── Actor, Sesion, Acceso, NAutenticacion ← RF02: remitente → rol; reglas de propiedad ("solo lo suyo")
     │   ├── Validar.java           ← validaciones (id, texto, email, teléfono, ci, nit, password, url, monto, %, fechas)
     │   ├── Seguridad.java         ← hash de contraseñas PBKDF2-SHA256 con sal
     │   ├── NUsuario, NRol, NUnidad (evita ciclos), NRepresentante                   (CU1)
@@ -319,6 +321,42 @@ documentación se escribe siempre en camelCase.
 | `act` | reactivar (deshacer una baja lógica) |
 | otras | se pueden crear verbos específicos de 3 letras: `apr` aprobar, `rec` rechazar, `gen` generar, `eje` ejecutar, `rep` reporte… (ver sección 10) |
 
+### Seguridad: identificación, permisos y confirmación (RF02)
+El correo es la única interfaz, así que **el remitente es la sesión**:
+
+| Remitente | Rol con el que se lo atiende |
+|---|---|
+| Correo registrado en `usuario`, con usuario y rol activos | El rol del usuario (y su empresa si es representante, su unidad si es encargado) |
+| Usuario o rol dado de baja | *Cuenta inactiva*: no puede usar ningún comando |
+| Correo **no registrado** | **Visitante** (catálogo y cotizar su propia proforma) |
+
+**Permisos por comando** (fijos en `presentacion/comandos/Permisos.java`; `help` y `conf` siempre disponibles):
+
+| Rol | Comandos |
+|---|---|
+| **Administrador** | Todos |
+| **Director** | Todos menos administrar usuarios y roles (`insUsu`, `modUsu`, `eliUsu`, `actUsu`, `insRol`, `modRol`, `eliRol`, `actRol`) |
+| **Encargado de Unidad** | `lisRed`, `mosRed`, `insSeg`, `lisSeg`, `lisPau`, `mosPau`, `anaRed`, `lisEsp`, `disEsp`, `lisNot`, `leeNot` |
+| **Cliente** | Catálogo (`lisSer`, `lisTar`, `mosTar`, `lisPaq`, `mosPaq`), cotizar (`lisPro`, `mosPro`, `insPro`, `addDet`, `quiDet`, `aprPro`, `recPro`), `mosEmp`, `lisCam`, material (`lisMat`, `mosMat`, `insMat`, `modMat`, `subMat`, `eliMat`, `lisRev`), `lisPau`, `mosPau`, `lisMet`, `anaPau`, `anaCam`, `repCli`, `lisNot`, `leeNot` |
+| **Visitante** | Catálogo y cotizar (los mismos de arriba) |
+
+**Propiedad ("solo lo suyo")**, aplicada en la capa de negocio (`Sesion`, `Acceso`):
+- Cliente: solo proformas, campañas, material, pautas, métricas, análisis y reportes **de su empresa**; cotiza solo para su empresa.
+- Visitante: solo **sus** proformas (su registro en `visitante` se crea con su correo en la primera cotización).
+- Encargado de Unidad: solo las redes **de su unidad** o de las que es responsable (y la pauta publicada en ellas).
+- Notificaciones: cada uno las suyas. Solo el personal (Administrador, Director) ve todo y aplica descuentos.
+- Quien carga material, revisa material, programa pauta o revisa páginas es **el remitente** (esos comandos ya no reciben `id_usuario`).
+
+**Confirmación de operaciones críticas** (marcadas con ✱ en `help`): todas las bajas y reactivaciones (`eli*`, `act*`) y
+`insUsu`, `modUsu`, `insRol`, `modRol`, `insRep`, `modRep`, `aprPro`, `recPro`, `genCam`, `aprMat`, `recMat`, `corMat`,
+`repPau`, `canPau`, `modPag`. El sistema responde **al correo real** con un código y la orden se ejecuta al enviar
+`conf["código"]` (válido 15 minutos, un solo uso, solo para el mismo remitente). Así, quien falsifique el remitente de un
+correo nunca recibe el código. Los códigos pendientes viven en memoria: si se reinicia `App`, hay que repetir la orden.
+
+> **Antes de usarlo:** el administrador debe enviar los correos desde el email con el que está registrado. Para registrar
+> otro correo como administrador: `insUsu["Nombre","su_correo@gmail.com","","clave123","<id_rol Administrador>",""]` (desde
+> un administrador ya registrado, o con `--probar`, que se ejecuta como el primer administrador activo).
+
 ### Respuestas
 | Caso | Asunto de la respuesta | Cuerpo |
 |---|---|---|
@@ -420,14 +458,14 @@ documentación se escribe siempre en camelCase.
 | **CU4 · Carga de material** (RF08) — estados `pendiente → aprobado \| rechazado \| correccion`; `correccion → (nueva versión) pendiente`; cualquiera `→ retirado` | | |
 | `lisMat` | filtro (archivo, tipo, estado, campaña o empresa) | `lisMat["pendiente"]` |
 | `mosMat` | id_material — ficha, texto de la publicación e historial de revisiones | `mosMat["1"]` |
-| `insMat` | id_campania (activa o pausada), id_usuario (**representante de la empresa de la campaña**), tipo (`video`, `audio`, `imagen`, `banner`, `texto`), nombre_archivo (con extensión), url_archivo, duracion_seg (**solo** video/audio, ≤ duración contratada), texto_publicacion (obligatorio en `texto`) | `insMat["1","3","video","spot_navidad.mp4","https://drive.google.com/spot_navidad.mp4","30",""]` |
+| `insMat` | id_campania (activa o pausada), tipo (`video`, `audio`, `imagen`, `banner`, `texto`), nombre_archivo (con extensión), url_archivo, duracion_seg (**solo** video/audio, ≤ duración contratada), texto_publicacion (obligatorio en `texto`) | `insMat["1","video","spot_navidad.mp4","https://drive.google.com/spot_navidad.mp4","30",""]` — carga el **remitente** (representante de la empresa de la campaña) |
 | `modMat` | id_material + tipo, nombre_archivo, url_archivo, duracion_seg, texto_publicacion — solo **pendiente**, no cambia la versión | `modMat["1","video","spot_v2.mp4","https://drive.google.com/spot_v2.mp4","30",""]` |
 | `subMat` | id_material, nombre_archivo, url_archivo, duracion_seg, texto_publicacion — solo en **correccion**; versión + 1 y vuelve a pendiente | `subMat["1","spot_v2.mp4","https://drive.google.com/spot_v2.mp4","28",""]` |
 | `eliMat` | id_material — retira (baja lógica); **rechazado si está programado en una pauta** | `eliMat["1"]` |
 | **CU4 · Validación de material** (RF09) — revisa **personal de Canal 11** (usuario activo que no es representante); solo material **pendiente** | | |
-| `aprMat` | id_material, id_revisor, observaciones (opcional) | `aprMat["1","1","Cumple los estándares técnicos"]` |
-| `recMat` | id_material, id_revisor, observaciones (**obligatorio**) — rechazo definitivo | `recMat["1","1","Contenido no permitido por la normativa"]` |
-| `corMat` | id_material, id_revisor, observaciones (**obligatorio**) — el cliente debe subir otra versión | `corMat["1","1","El audio está saturado, reduzca el volumen"]` |
+| `aprMat` | id_material, observaciones (opcional) — revisa el remitente | `aprMat["1","Cumple los estándares técnicos"]` |
+| `recMat` | id_material, observaciones (**obligatorio**) — rechazo definitivo | `recMat["1","Contenido no permitido por la normativa"]` |
+| `corMat` | id_material, observaciones (**obligatorio**) — el cliente debe subir otra versión | `corMat["1","El audio está saturado, reduzca el volumen"]` |
 | `lisRev` | id_material — historial de revisiones | `lisRev["1"]` |
 | **CU5 · Canales de difusión** — tipos `television`, `radio`, `web` (las redes sociales del CU2 también son canales) | | |
 | `lisCan` | filtro — todos los canales con sus espacios disponibles | `lisCan["*"]` |
@@ -442,12 +480,12 @@ documentación se escribe siempre en camelCase.
 | **CU5 · Programación de pauta** (RF10) — estados `programada → publicada \| cancelada` | | |
 | `lisPau` | filtro (campaña, empresa, canal o estado) | `lisPau["programada"]` |
 | `mosPau` | id_programacion | `mosPau["1"]` |
-| `insPau` | id_detalle (ítem contratado de la proforma), id_material (**aprobado**), id_espacio (**disponible**), id_usuario (**personal de Canal 11**) | `insPau["1","1","5","1"]` |
+| `insPau` | id_detalle (ítem contratado de la proforma), id_material (**aprobado**), id_espacio (**disponible**) — programa el remitente (personal de Canal 11) | `insPau["1","1","5"]` |
 | `repPau` | id_programacion, id_espacio_nuevo — libera el espacio anterior | `repPau["1","6"]` |
 | `canPau` | id_programacion — cancela y libera el espacio (y el cupo contratado) | `canPau["1"]` |
 | `pubPau` | id_programacion, url_publicacion (**obligatoria en redes sociales**) — solo cuando ya llegó la hora | `pubPau["1","https://facebook.com/canal11uagrm/posts/123"]` |
 | **CU5 · Notificaciones** (RF11) | | |
-| `lisNot` | id_usuario — avisos recibidos (fecha, título, mensaje, leída) | `lisNot["4"]` |
+| `lisNot` | `*` = mis avisos; id_usuario = los de otro usuario (solo personal de Canal 11) | `lisNot["*"]` |
 | `leeNot` | id_notificacion — marca como leída | `leeNot["1"]` |
 | **CU6 · Términos de monitoreo** (RF12) | | |
 | `lisTer` | filtro | `lisTer["*"]` |
@@ -459,7 +497,7 @@ documentación se escribe siempre en camelCase.
 | **CU6 · Páginas no autorizadas** — toda cuenta encontrada que **no está en `red_social`**; estados `detectada → confirmada → denunciada → eliminada` | | |
 | `lisPag` | filtro (URL, nombre, estado o plataforma) | `lisPag["detectada"]` |
 | `mosPag` | id_pagina — la página y sus detecciones con evidencia | `mosPag["1"]` |
-| `modPag` | id_pagina, estado (`confirmada`, `denunciada`, `eliminada`), id_usuario (**personal de Canal 11**) | `modPag["1","confirmada","1"]` |
+| `modPag` | id_pagina, estado (`confirmada`, `denunciada`, `eliminada`) — revisa el remitente | `modPag["1","confirmada"]` |
 | **CU7 · Métricas** (RF13) — mediciones **acumuladas** de pautas **publicadas**; coherencia: alcance ≤ impresiones, clics ≤ impresiones, compartidos ≤ interacciones | | |
 | `insMet` | id_programacion, alcance, impresiones, interacciones, clics, compartidos — registro manual (cualquier canal) | `insMet["5","1200","3400","210","45","12"]` |
 | `modMet` | id_metrica + los 5 valores — corrige una medición | `modMet["1","1250","3400","210","45","12"]` |
@@ -497,11 +535,11 @@ documentación se escribe siempre en camelCase.
 
 **Flujo típico CU4 (del archivo del cliente a material aprobado):**
 1. El cliente sube su archivo a un almacenamiento propio (Drive, Dropbox…) y registra el enlace:
-   `insMat["1","3","video","spot.mp4","https://drive.google.com/...","30",""]` → queda **pendiente**.
+   `insMat["1","video","spot.mp4","https://drive.google.com/...","30",""]` → queda **pendiente**.
 2. Canal 11 revisa (`lisMat["pendiente"]`, `mosMat["1"]`) y decide:
-   - `aprMat["1","1",""]` → **aprobado** (listo para la pauta del CU5),
-   - `corMat["1","1","Motivo"]` → **correccion** → el cliente sube `subMat["1","spot_v2.mp4","https://...","28",""]` (versión 2, otra vez pendiente),
-   - `recMat["1","1","Motivo"]` → **rechazado** (definitivo).
+   - `aprMat["1",""]` → **aprobado** (listo para la pauta del CU5),
+   - `corMat["1","Motivo"]` → **correccion** → el cliente sube `subMat["1","spot_v2.mp4","https://...","28",""]` (versión 2, otra vez pendiente),
+   - `recMat["1","Motivo"]` → **rechazado** (definitivo).
 3. Cada decisión queda en el historial: `lisRev["1"]`.
 
 Formatos aceptados por tipo (según la extensión de `nombre_archivo`): video `mp4 mov avi mkv` · audio `mp3 wav aac ogg` ·
@@ -511,11 +549,11 @@ imagen/banner `jpg jpeg png gif webp` · texto `txt pdf docx` (si se omite el no
 1. Canales y calendario: `insCan["television","Canal 11 TV"]` → `genEsp["3","01/12/2026","31/12/2026","20:00","20:01"]`
    (las redes sociales del CU2 ya son canales: solo se les crean espacios con `insEsp`/`genEsp`).
 2. Buscar lugar: `disEsp["*","01/12/2026","07/12/2026"]` y el ítem contratado con `mosPro["<id_proforma>"]` (columna *ID detalle*).
-3. Programar: `insPau["id_detalle","id_material","id_espacio","id_usuario_canal11"]`.
+3. Programar: `insPau["id_detalle","id_material","id_espacio"]` (lo envía el personal de Canal 11).
 4. **RF11:** si el canal es una red social, se registra una `notificacion` para su responsable (o, si no tiene, para los
    usuarios activos de su unidad) y se le envía por correo. La respuesta indica a quién se avisó y si el correo salió.
 5. Cambios: `repPau` (otro espacio, avisa al canal anterior y al nuevo) o `canPau` (libera espacio y cupo).
-6. Emitida la pauta: `pubPau["id","url"]`. Los encargados revisan sus avisos con `lisNot["id_usuario"]` / `leeNot["id"]`.
+6. Emitida la pauta: `pubPau["id","url"]`. Los encargados revisan sus avisos con `lisNot["*"]` / `leeNot["id"]`.
 
 Reglas de `insPau`/`repPau`: campaña **activa**; espacio dentro de las fechas de la campaña y en el futuro; no exceder lo
 contratado (cantidad del ítem, o cantidad × tarifas del paquete); el canal debe aceptar el tipo de material
@@ -538,7 +576,7 @@ el canal debe ser una red social de esa unidad.
 5. Una sola ejecución a la vez por plataforma: si hay otra *en_proceso* (de menos de 30 min) se rechaza; las más antiguas
    se cierran como *interrumpidas*. Todos los resultados de una ejecución se guardan en **una transacción**; si algo falla,
    la ejecución queda en `error` con el motivo (ver `lisEje`).
-6. Seguimiento del personal: `lisPag["detectada"]` → `mosPag["id"]` → `modPag["id","confirmada","id_usuario"]`
+6. Seguimiento del personal: `lisPag["detectada"]` → `mosPag["id"]` → `modPag["id","confirmada"]`
    → `denunciada` → `eliminada` (si una eliminada reaparece, el scraping la reabre como detectada).
 7. **Lo único autorizado es `red_social`**, que administra el personal en el CU2; el scraping no autoriza nada.
    Si una cuenta detectada resulta legítima, se la registra como red oficial (`insRed`) y deja de detectarse.
@@ -793,6 +831,10 @@ Consola esperada:
 ```
 
 ### Probar un comando sin correo (modo `--probar`)
+Por defecto se ejecuta como el **primer administrador activo**. Para probar con otro remitente (otro rol o un visitante):
+```powershell
+java -cp "out;lib/*" grupo13.App --probar --como cliente@empresa.com "lisPro[\"*\"]"
+```
 Ejecuta el comando contra la base de datos real e imprime el HTML de la respuesta. **No lee ni envía correos.**
 ```powershell
 java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
@@ -830,7 +872,7 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 |---|---|---|
 | **El buzón se vacía** | Cada correo leído se procesa y se borra (`DELE` + `QUIT`). Si dos integrantes ejecutan `App` a la vez, se "roban" los correos. | Coordinar quién tiene el servidor corriendo; para desarrollo usar `--probar`. |
 | **Contraseña en el código** | `Config.java` tiene la contraseña del grupo como valor por defecto, así que queda versionada aunque `config.properties` esté en `.gitignore`. | Quitar los valores por defecto de `mail.password` y `db.password` en `Config.java` y depender solo de `config.properties`. |
-| **Sin autenticación de remitente** | Cualquiera que escriba a `grupo13sa@tecnoweb.org.bo` puede ejecutar comandos. | Pendiente: permitir solo remitentes registrados como usuarios activos y controlar permisos por rol (RF02). |
+| **Remitente falsificable** | SMTP no verifica el campo `From`. Mitigado: las respuestas van al correo real (quien falsifica no ve datos) y las operaciones críticas piden un código que llega al correo real. | Las consultas no críticas de un usuario podrían dispararse a su nombre, pero la respuesta solo la recibe él. |
 | Contraseña en el asunto | `insUsu` lleva la contraseña en texto plano en el asunto del correo. | Aceptado para el alcance académico; en la BD se guarda hasheada. |
 | Spam | Gmail puede mandar las respuestas a *Spam* (el servidor no firma DKIM/SPF). | Revisar la carpeta Spam y marcar "No es spam". |
 | Puerto 25 | Algunas redes/ISP bloquean el puerto 25 de salida. | Probar desde la red de la facultad o con otra conexión. |

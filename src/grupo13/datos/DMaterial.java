@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * Capa de datos de material_publicitario y su composición revision_material.
  * Fila de material: id_material, campania, razon_social, tipo, nombre_archivo, formato, url_archivo, duracion_seg,
- *   version, estado, fecha_carga, subido_por, texto_publicacion, id_campania.
+ *   version, estado, fecha_carga, subido_por, texto_publicacion, id_campania, id_empresa.
  * Fila de revisión: id_revision, fecha, resultado, observaciones, revisor.
  */
 public class DMaterial {
@@ -14,7 +14,7 @@ public class DMaterial {
     private static final String SELECT =
             "SELECT m.id_material, c.nombre AS campania, e.razon_social, m.tipo, m.nombre_archivo, m.formato,"
             + " m.url_archivo, m.duracion_seg, m.version, m.estado, m.fecha_carga, u.nombre_completo AS subido_por,"
-            + " m.texto_publicacion, m.id_campania"
+            + " m.texto_publicacion, m.id_campania, p.id_empresa"
             + " FROM material_publicitario m"
             + " JOIN campania c ON c.id_campania = m.id_campania"
             + " JOIN proforma p ON p.id_proforma = c.id_proforma"

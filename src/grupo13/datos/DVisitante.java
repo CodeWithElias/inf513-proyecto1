@@ -26,6 +26,13 @@ public class DVisitante {
         return Conexion.consultarUno(SELECT + " WHERE v.id_visitante = ?", id);
     }
 
+    /** id del visitante con ese correo (el más antiguo), o null. */
+    public Integer buscarPorEmail(String email) throws SQLException {
+        String v = Conexion.valor("SELECT id_visitante FROM visitante WHERE lower(email) = lower(?) ORDER BY id_visitante LIMIT 1",
+                email);
+        return v == null ? null : Integer.parseInt(v);
+    }
+
     public int insertar(String nombre, String email, String telefono) throws SQLException {
         return Conexion.insertar("INSERT INTO visitante (nombre, email, telefono) VALUES (?, ?, ?) RETURNING id_visitante",
                 nombre, Conexion.nulo(email), Conexion.nulo(telefono));

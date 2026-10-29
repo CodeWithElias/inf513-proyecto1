@@ -1,6 +1,9 @@
 package grupo13.presentacion.comandos;
 
+import grupo13.negocio.Actor;
+import grupo13.negocio.NAutenticacion;
 import grupo13.negocio.NegocioException;
+import grupo13.negocio.Sesion;
 import grupo13.presentacion.Html;
 import grupo13.presentacion.PAnalisis;
 import grupo13.presentacion.PCampania;
@@ -28,7 +31,11 @@ import grupo13.presentacion.PUnidad;
 import grupo13.presentacion.PUsuario;
 import grupo13.presentacion.PVisitante;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +66,13 @@ public class Despachador {
         }
     }
 
+    /** Minutos de validez de un código de confirmación. */
+    private static final int MINUTOS_CONFIRMACION = 15;
+
     private final Map<String, Definicion> comandos = new LinkedHashMap<>();
+    private final Map<String, Pendiente> pendientes = new HashMap<>();
+    private final SecureRandom azar = new SecureRandom();
+    private final NAutenticacion autenticacion = new NAutenticacion();
     private String grupoActual = "General";
 
     public Despachador() {
@@ -73,7 +86,9 @@ public class Despachador {
         PSeguidoresRed seguidores = new PSeguidoresRed();
 
         grupo("Ayuda");
-        registrar("help", "Lista todos los comandos existentes", new String[]{}, "help", p -> ayuda());
+        registrar("help", "Lista los comandos que su rol puede usar", new String[]{}, "help", p -> ayuda());
+        registrar("conf", "Confirma una operación crítica con el código recibido por correo",
+                new String[]{"codigo"}, "conf[\"482913\"]", p -> ayuda()); // lo atiende ejecutar() antes de llegar aquí
 
         grupo("CU1: Gestión de Usuarios");
         registrar("lisUsu", "Lista los usuarios (\"*\" = todos, o un texto para buscar por nombre/email/rol/unidad)",
@@ -401,7 +416,7 @@ public class Despachador {
         registrar("mosPag", "Muestra una página con sus detecciones y evidencias",
                 new String[]{"id_pagina"}, "mosPag[\"1\"]", pagina::mostrar);
         registrar("modPag", "Cambia el estado de una página (lo revisa el personal de Canal 11)",
-                new String[]{"id_pagina", "estado", "id_usuario"}, "modPag[\"1\",\"confirmada\",\"1\"]", pagina::revisar);
+                new String[]{"id_pagina", "estado"}, "modPag[\"1\",\"confirmada\"]", pagina::revisar);
     }
 
     /** CU5: Gestión de Programar Pauta Multi-Canal (RF10 y RF11). */
@@ -444,7 +459,7 @@ public class Despachador {
         registrar("mosPau", "Muestra una pauta",
                 new String[]{"id_programacion"}, "mosPau[\"1\"]", pauta::mostrar);
         registrar("insPau", "Programa material aprobado en un espacio libre, con cargo a un ítem contratado",
-                PPauta.PARAMS_PROGRAMAR, "insPau[\"1\",\"1\",\"1\",\"1\"]", pauta::programar);
+                PPauta.PARAMS_PROGRAMAR, "insPau[\"1\",\"1\",\"1\"]", pauta::programar);
         registrar("repPau", "Mueve una pauta programada a otro espacio libre",
                 new String[]{"id_programacion", "id_espacio_nuevo"}, "repPau[\"1\",\"2\"]", pauta::reprogramar);
         registrar("canPau", "Cancela una pauta programada y libera su espacio",
@@ -454,8 +469,8 @@ public class Despachador {
                 "pubPau[\"1\",\"https://facebook.com/canal11uagrm/posts/123\"]", pauta::publicar);
 
         grupo("CU5: Notificaciones (RF11)");
-        registrar("lisNot", "Lista las notificaciones de un usuario",
-                new String[]{"id_usuario"}, "lisNot[\"1\"]", notificacion::listar);
+        registrar("lisNot", "Mis notificaciones (\"*\") o las de un usuario (solo personal de Canal 11)",
+                new String[]{"id_usuario"}, "lisNot[\"*\"]", notificacion::listar);
         registrar("leeNot", "Marca una notificación como leída",
                 new String[]{"id_notificacion"}, "leeNot[\"1\"]", notificacion::marcarLeida);
     }
@@ -471,7 +486,7 @@ public class Despachador {
                 new String[]{"id_material"}, "mosMat[\"1\"]", material::mostrar);
         registrar("insMat", "El representante carga material a una campaña de su empresa (duración solo video/audio)",
                 PMaterial.PARAMS_INSERTAR,
-                "insMat[\"1\",\"3\",\"video\",\"spot_navidad.mp4\",\"https://drive.google.com/spot_navidad.mp4\",\"30\",\"\"]",
+                "insMat[\"1\",\"video\",\"spot_navidad.mp4\",\"https://drive.google.com/spot_navidad.mp4\",\"30\",\"\"]",
                 material::insertar);
         registrar("modMat", "Corrige los datos de un material pendiente de revisión",
                 PMaterial.PARAMS_MODIFICAR,
@@ -486,11 +501,11 @@ public class Despachador {
 
         grupo("CU4: Validación de material (RF09) - revisa personal de Canal 11");
         registrar("aprMat", "Aprueba el material (observaciones opcionales)",
-                PMaterial.PARAMS_REVISION, "aprMat[\"1\",\"1\",\"Cumple los estándares técnicos\"]", material::aprobar);
+                PMaterial.PARAMS_REVISION, "aprMat[\"1\",\"Cumple los estándares técnicos\"]", material::aprobar);
         registrar("recMat", "Rechaza el material (observaciones obligatorias)",
-                PMaterial.PARAMS_REVISION, "recMat[\"1\",\"1\",\"Contenido no permitido por la normativa\"]", material::rechazar);
+                PMaterial.PARAMS_REVISION, "recMat[\"1\",\"Contenido no permitido por la normativa\"]", material::rechazar);
         registrar("corMat", "Solicita correcciones al cliente (observaciones obligatorias)",
-                PMaterial.PARAMS_REVISION, "corMat[\"1\",\"1\",\"El audio está saturado, reduzca el volumen\"]",
+                PMaterial.PARAMS_REVISION, "corMat[\"1\",\"El audio está saturado, reduzca el volumen\"]",
                 material::solicitarCorreccion);
         registrar("lisRev", "Lista el historial de revisiones de un material",
                 new String[]{"id_material"}, "lisRev[\"1\"]", material::listarRevisiones);
@@ -504,18 +519,56 @@ public class Despachador {
         comandos.put(nombre.toLowerCase(), new Definicion(grupoActual, nombre, descripcion, parametros, ejemplo, accion));
     }
 
-    /** Interpreta el asunto, valida y ejecuta. Nunca lanza excepción: siempre devuelve una respuesta. */
-    public Respuesta procesar(String asunto) {
+    /**
+     * RF02: identifica al remitente, verifica que su rol pueda usar el comando, pide confirmación en las operaciones
+     * críticas y ejecuta. Nunca lanza excepción: siempre devuelve una respuesta.
+     */
+    public Respuesta procesar(String remitente, String asunto) {
+        Actor actor;
+        try {
+            actor = autenticacion.identificar(remitente);
+        } catch (NegocioException e) {
+            return error(asunto, Html.esc(e.getMessage()));
+        }
+        Sesion.iniciar(actor);
+        try {
+            return ejecutar(actor, asunto, false);
+        } finally {
+            Sesion.cerrar();
+        }
+    }
+
+    /** Correo con el que se ejecuta el modo de prueba si no se indica otro (primer administrador activo). */
+    public String remitentePorDefecto() throws NegocioException {
+        return autenticacion.correoAdministrador();
+    }
+
+    private Respuesta ejecutar(Actor actor, String asunto, boolean confirmado) {
         try {
             Comando cmd = Comando.parsear(asunto);
-            Definicion def = comandos.get(cmd.getNombre().toLowerCase());
+            String nombre = cmd.getNombre().toLowerCase();
+            if (actor.es(Actor.INACTIVO)) {
+                throw new ComandoException("Su cuenta (" + Html.esc(actor.getEmail()) + ") está dada de baja; comuníquese con"
+                        + " Canal 11 para reactivarla.");
+            }
+            if (nombre.equals("conf")) {
+                return confirmar(actor, cmd);
+            }
+            Definicion def = comandos.get(nombre);
             if (def == null) {
                 throw new ComandoException("El comando '" + Html.esc(cmd.getNombre()) + "' no existe.");
+            }
+            if (!Permisos.permitido(actor.getRol(), def.nombre)) {
+                throw new ComandoException("Su rol (" + Html.esc(actor.getRol()) + ") no tiene permiso para usar "
+                        + def.nombre + ".");
             }
             if (cmd.getParametros().size() != def.parametros.length) {
                 throw new ComandoException("El comando " + def.nombre + " requiere " + def.parametros.length
                         + " parámetro(s) " + Html.esc(firma(def)) + " y se recibieron " + cmd.getParametros().size()
                         + ".<br>Ejemplo: <code>" + Html.esc(def.ejemplo) + "</code>");
+            }
+            if (!confirmado && Permisos.critico(def.nombre)) {
+                return pedirConfirmacion(actor, asunto);
             }
             return def.accion.ejecutar(cmd.getParametros());
         } catch (ComandoException e) {
@@ -527,6 +580,54 @@ public class Despachador {
         }
     }
 
+    // ===== Confirmación de operaciones críticas =====
+
+    /** Orden crítica en espera: quién la pidió, qué pidió y hasta cuándo vale el código. */
+    private static final class Pendiente {
+        final String email;
+        final String asunto;
+        final LocalDateTime vence;
+
+        Pendiente(String email, String asunto, LocalDateTime vence) {
+            this.email = email;
+            this.asunto = asunto;
+            this.vence = vence;
+        }
+    }
+
+    /** Guarda la orden y responde (al correo real del remitente) con el código para confirmarla. */
+    private Respuesta pedirConfirmacion(Actor actor, String asunto) {
+        pendientes.values().removeIf(p -> p.vence.isBefore(LocalDateTime.now()));
+        String codigo;
+        do {
+            codigo = String.format("%06d", azar.nextInt(1_000_000));
+        } while (pendientes.containsKey(codigo));
+        LocalDateTime vence = LocalDateTime.now().plusMinutes(MINUTOS_CONFIRMACION);
+        pendientes.put(codigo, new Pendiente(actor.getEmail(), asunto, vence));
+        String html = Html.parrafo("Para ejecutar la orden " + asunto + " envíe un correo con este asunto:")
+                + "<p style='font-size:20px'><b><code>conf[\"" + codigo + "\"]</code></b></p>"
+                + Html.parrafo("El código vence a las " + vence.format(DateTimeFormatter.ofPattern("HH:mm")) + " ("
+                + MINUTOS_CONFIRMACION + " minutos) y solo puede usarlo " + actor.getEmail() + ".")
+                + Html.parrafo("Si usted no envió esta orden, ignore este correo: no se realizará ningún cambio.");
+        return Respuesta.exito("Confirmación requerida", Html.pagina("Confirmación requerida", html));
+    }
+
+    /** conf["codigo"]: ejecuta la orden pendiente si el código es del mismo remitente y no venció. */
+    private Respuesta confirmar(Actor actor, Comando cmd) throws ComandoException {
+        if (cmd.getParametros().size() != 1) {
+            throw new ComandoException("Use conf[\"código\"] con el código de 6 dígitos que recibió.");
+        }
+        Pendiente p = pendientes.get(cmd.getParametros().get(0));
+        if (p == null || !p.email.equalsIgnoreCase(actor.getEmail())) {
+            throw new ComandoException("El código de confirmación no existe, ya fue usado o no corresponde a su correo.");
+        }
+        pendientes.remove(cmd.getParametros().get(0));
+        if (p.vence.isBefore(LocalDateTime.now())) {
+            throw new ComandoException("El código venció; envíe nuevamente la orden " + Html.esc(p.asunto) + ".");
+        }
+        return ejecutar(actor, p.asunto, true);
+    }
+
     private Respuesta error(String asunto, String detalle) {
         String html = Html.pagina("Error",
                 "<p>No se pudo realizar la orden <code>" + Html.esc(asunto) + "</code>.</p>"
@@ -535,15 +636,25 @@ public class Despachador {
         return Respuesta.error("Error", html);
     }
 
-    /** Arma una tabla por cada grupo de comandos. */
+    /** Arma una tabla por cada grupo, solo con los comandos que el rol del remitente puede usar. */
     private Respuesta ayuda() {
+        Actor actor = Sesion.actual();
         Map<String, List<String[]>> porGrupo = new LinkedHashMap<>();
         for (Definicion d : comandos.values()) {
+            if (actor != null && !Permisos.permitido(actor.getRol(), d.nombre)) {
+                continue;
+            }
+            String descripcion = d.descripcion + (Permisos.critico(d.nombre) ? " ✱" : "");
             porGrupo.computeIfAbsent(d.grupo, g -> new ArrayList<>())
-                    .add(new String[]{d.nombre, d.descripcion, firma(d), d.ejemplo});
+                    .add(new String[]{d.nombre, descripcion, firma(d), d.ejemplo});
         }
-        StringBuilder sb = new StringBuilder("<p>Escriba el comando en el <b>asunto</b> del correo. "
-                + "Los parámetros van entre comillas dobles y separados por comas.</p>");
+        StringBuilder sb = new StringBuilder();
+        if (actor != null) {
+            sb.append(Html.parrafo("Usted está identificado como " + actor.getEmail() + " — rol: " + actor.getRol() + "."));
+        }
+        sb.append("<p>Escriba el comando en el <b>asunto</b> del correo. "
+                + "Los parámetros van entre comillas dobles y separados por comas. "
+                + "Los comandos marcados con ✱ piden un código de confirmación que llega a su correo.</p>");
         for (Map.Entry<String, List<String[]>> e : porGrupo.entrySet()) {
             sb.append("<h3>").append(Html.esc(e.getKey())).append("</h3>")
               .append(Html.tabla(new String[]{"Comando", "Descripción", "Parámetros", "Ejemplo"}, e.getValue(), false));

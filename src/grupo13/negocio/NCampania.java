@@ -4,6 +4,7 @@ import grupo13.datos.DCampania;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -20,7 +21,13 @@ public class NCampania {
 
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
-            return datos.listar(filtro);
+            List<String[]> filas = new ArrayList<>();
+            for (String[] f : datos.listar(filtro)) {
+                if (Sesion.esDeSuEmpresa(f[8])) {
+                    filas.add(f);
+                }
+            }
+            return filas;
         } catch (SQLException e) {
             throw NegocioException.bd(e);
         }

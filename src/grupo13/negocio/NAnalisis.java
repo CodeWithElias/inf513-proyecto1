@@ -55,6 +55,7 @@ public class NAnalisis {
             if (pp == null) {
                 throw new NegocioException("No existe una pauta con ID " + id + ".");
             }
+            Acceso.exigirPauta(pp);
             List<String[]> ultimas = metrica.ultimasDos(id);
             if (ultimas.isEmpty()) {
                 throw new NegocioException("La pauta " + id + " todavía no tiene mediciones registradas.");
@@ -86,6 +87,7 @@ public class NAnalisis {
             if (cam == null) {
                 throw new NegocioException("No existe una campaña con ID " + id + ".");
             }
+            Sesion.exigirEmpresa(cam[8], "la campaña " + id);
             List<String[]> detalle = metrica.ultimasPorCampania(id, NPauta.PUBLICADA);
             if (detalle.isEmpty()) {
                 throw new NegocioException("La campaña '" + cam[1] + "' todavía no tiene pautas publicadas.");
@@ -136,6 +138,7 @@ public class NAnalisis {
             if (red == null) {
                 throw new NegocioException("No existe una red social con ID " + id + ".");
             }
+            Acceso.exigirRed(String.valueOf(id));
             List<String[]> historial = seguidores.listarPorCanal(id);
             List<String[]> pautas = metrica.ultimasPorCanal(id, NPauta.PUBLICADA);
             List<String[]> ind = new ArrayList<>();

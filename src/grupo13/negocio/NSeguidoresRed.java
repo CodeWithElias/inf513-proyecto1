@@ -22,6 +22,7 @@ public class NSeguidoresRed {
             if (redSocial.estaActivo(id) == null) {
                 throw new NegocioException("No existe una red social con ID " + id + ".");
             }
+            Acceso.exigirRed(String.valueOf(id));
             return datos.listarPorCanal(id);
         } catch (SQLException e) {
             throw NegocioException.bd(e);
@@ -37,6 +38,7 @@ public class NSeguidoresRed {
             if (activo == null) {
                 throw new NegocioException("No existe una red social con ID " + id + ".");
             }
+            Acceso.exigirRed(String.valueOf(id));
             if (!activo) {
                 throw new NegocioException("La red social " + id
                         + " está inactiva. Reactívela antes de registrar métricas de seguidores.");

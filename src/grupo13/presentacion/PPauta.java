@@ -11,7 +11,7 @@ import java.util.List;
 /** Presentación del CU5 – Programación de pauta: lisPau, mosPau, insPau, repPau, canPau, pubPau. */
 public class PPauta {
 
-    public static final String[] PARAMS_PROGRAMAR = {"id_detalle", "id_material", "id_espacio", "id_usuario"};
+    public static final String[] PARAMS_PROGRAMAR = {"id_detalle", "id_material", "id_espacio"};
 
     private static final String[] COLUMNAS = {"ID", "Campaña", "Empresa", "Canal", "Tipo de canal", "Fecha y hora",
             "Material", "Tipo de material", "Estado", "URL publicación", "Programado por"};
@@ -28,9 +28,9 @@ public class PPauta {
         return Vista.registro("Pauta " + p.get(0), COLUMNAS, negocio.obtener(p.get(0)));
     }
 
-    /** insPau["id_detalle","id_material","id_espacio","id_usuario"] */
+    /** insPau["id_detalle","id_material","id_espacio"] (programa el remitente) */
     public Respuesta programar(List<String> p) throws NegocioException {
-        ResultadoPauta r = negocio.programar(p.get(0), p.get(1), p.get(2), p.get(3));
+        ResultadoPauta r = negocio.programar(p.get(0), p.get(1), p.get(2));
         return conAvisos("La pauta fue programada con ID " + r.getIdProgramacion() + ".", r);
     }
 

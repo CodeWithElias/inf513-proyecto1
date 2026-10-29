@@ -67,11 +67,11 @@ public class NPagina {
     }
 
     /** Cambia el estado según las transiciones permitidas; revisa el personal de Canal 11. */
-    public void revisar(String idPagina, String estado, String idUsuario) throws NegocioException {
+    public void revisar(String idPagina, String estado) throws NegocioException {
         try {
             int id = Validar.id(idPagina, "id_pagina");
             String nuevo = estado.toLowerCase();
-            int usu = Validar.id(idUsuario, "id_usuario");
+            int usu = Sesion.usuario().getIdUsuario();
             if (!TRANSICIONES.containsKey(nuevo)) {
                 throw new NegocioException("Estado inválido '" + estado
                         + "'. Use: confirmada, denunciada o eliminada.");
