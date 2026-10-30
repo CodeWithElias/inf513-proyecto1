@@ -346,8 +346,8 @@ public class Despachador {
                 periodo, "repCom[\"01/01/2026\",\"31/12/2026\"]", reporte::comercial);
         registrar("repSer", "Servicios y paquetes más vendidos",
                 periodo, "repSer[\"*\",\"*\"]", reporte::servicios);
-        registrar("repPau", "Ocupación de la pauta por canal y tasa de cancelación",
-                periodo, "repPau[\"01/12/2026\",\"31/12/2026\"]", reporte::ocupacion);
+        registrar("repOcu", "Ocupación de la pauta por canal y tasa de cancelación",
+                periodo, "repOcu[\"01/12/2026\",\"31/12/2026\"]", reporte::ocupacion);
         registrar("repMat", "Material publicitario: estados, tasa de aprobación y revisiones",
                 periodo, "repMat[\"*\",\"*\"]", reporte::material);
         registrar("repImp", "Impacto y alcance: por canal, por campaña y pautas con más interacción",
@@ -516,6 +516,9 @@ public class Despachador {
     }
 
     private void registrar(String nombre, String descripcion, String[] parametros, String ejemplo, Accion accion) {
+        if (comandos.containsKey(nombre.toLowerCase())) {
+            throw new IllegalStateException("Comando duplicado: " + nombre);
+        }
         comandos.put(nombre.toLowerCase(), new Definicion(grupoActual, nombre, descripcion, parametros, ejemplo, accion));
     }
 

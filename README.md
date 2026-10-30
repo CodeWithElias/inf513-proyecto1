@@ -512,7 +512,7 @@ correo nunca recibe el código. Los códigos pendientes viven en memoria: si se 
 | `tabGen` | Tablero general: ingresos, proformas, conversión, campañas activas, pautas, impresiones, interacción, material pendiente y páginas no autorizadas nuevas | `tabGen["01/01/2026","31/12/2026"]` |
 | `repCom` | Comercial: proformas por estado (incluye **vencidas**), ingresos por mes, tasa de conversión, ticket promedio y principales clientes | `repCom["01/10/2026","31/10/2026"]` |
 | `repSer` | Servicios y paquetes más vendidos (cantidad, monto y % del total) | `repSer["*","*"]` |
-| `repPau` | Ocupación del calendario por canal (ocupados/disponibles/bloqueados), pautas programadas/publicadas y tasa de cancelación | `repPau["01/12/2026","31/12/2026"]` |
+| `repOcu` | Ocupación del calendario por canal (ocupados/disponibles/bloqueados), pautas programadas/publicadas y tasa de cancelación | `repOcu["01/12/2026","31/12/2026"]` |
 | `repMat` | Material por estado y tipo, tasa de aprobación, versiones promedio y revisiones por revisor | `repMat["*","*"]` |
 | `repImp` | Impacto y alcance por canal y por campaña, y las 5 pautas con más interacción | `repImp["01/01/2026","31/12/2026"]` |
 | `repRed` | Crecimiento de seguidores de cada red social en el periodo | `repRed["01/01/2026","31/12/2026"]` |

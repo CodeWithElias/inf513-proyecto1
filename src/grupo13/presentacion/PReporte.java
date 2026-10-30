@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Presentación del CU8 – Reportes y estadísticas: tabGen, repCom, repSer, repPau, repMat, repImp, repRed, repMon, repCli.
+ * Presentación del CU8 – Reportes y estadísticas: tabGen, repCom, repSer, repOcu, repMat, repImp, repRed, repMon, repCli.
  * Todos reciben fecha_desde y fecha_hasta (DD/MM/AAAA o "*" = sin límite). Cada reporte combina indicadores,
  * tablas y gráficos de barras.
  */
@@ -61,7 +61,7 @@ public class PReporte {
         return respuesta("Servicios y paquetes vendidos", r, html);
     }
 
-    /** repPau["desde","hasta"]: ocupación de la pauta por canal. */
+    /** repOcu["desde","hasta"]: ocupación de la pauta por canal. */
     public Respuesta ocupacion(List<String> p) throws NegocioException {
         Reporte r = negocio.ocupacion(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
