@@ -13,12 +13,6 @@ import grupo13.presentacion.correo.Notificador;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
@@ -28,8 +22,6 @@ import java.time.format.DateTimeFormatter;
  *   java -cp ... grupo13.App                    -> revisa el buzón cada N segundos y ejecuta el scraping cada N horas
  *   java -cp ... grupo13.App --probar "ASUNTO"  -> ejecuta un comando sin correo, como el primer administrador activo
  *   java -cp ... grupo13.App --probar --como correo@x.com "ASUNTO"  -> lo ejecuta como ese remitente
- *   java -cp ... grupo13.App --guion pruebas/guion.txt  -> ejecuta en orden líneas "remitente | ASUNTO" en un mismo
- *                                                         proceso; conf["CODIGO"] usa el último código de ese remitente
  */
 public class App {
 
@@ -64,11 +56,6 @@ public class App {
             Respuesta r = app.despachador.procesar(remitente, comando);
             System.out.println("Asunto respuesta: " + r.getTitulo());
             System.out.println(r.getHtml());
-            return;
-        }
-        if (args.length == 2 && args[0].equals("--guion")) {
-            Notificador.desactivar();
-            app.guion(Path.of(args[1]));
             return;
         }
 
