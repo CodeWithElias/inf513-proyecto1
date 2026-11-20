@@ -4,8 +4,9 @@ Prueba de punta a punta del sistema, como en producción: cada paso es **un corr
 `grupo13sa@tecnoweb.org.bo` con el comando en el **asunto** (el cuerpo puede ir vacío). El sistema responde al
 remitente con *Éxito*, un listado, *Confirmación requerida* o *Error*.
 
-Parte de los datos cargados con [sql/datos.sql](../sql/datos.sql). Los IDs de este guion suponen que, después de
-cargarlos, todavía no se creó nada desde el correo; si ya se crearon registros, use el ID que devuelva cada respuesta.
+Parte de la base recién creada con [sql/schema.sql](../sql/schema.sql) y [sql/datos.sql](../sql/datos.sql). Las fechas
+de los datos iniciales son relativas al día en que se cargan; las de este guion apuntan a diciembre de 2026. Los IDs
+suponen que todavía no se creó nada desde el correo; si ya se crearon registros, use el ID que devuelva cada respuesta.
 
 ## Preparación
 
@@ -108,10 +109,10 @@ Formato: `modUsu["id","nombre","email","teléfono","password","id_rol","id_unida
 | 4.11 | CLI2 | `lisPro["*"]` | Solo la proforma 4 de su empresa |
 | 4.12 | CLI2 | `mosPro["1"]` | Error: no pertenece a su empresa |
 | 4.13 | CLI2 | `aprPro["4"]` → `conf["…"]` | Éxito: proforma 4 aprobada |
-| 4.14 | ADM | `lisPro["*"]` | 8 proformas; la 6 figura **vencida** (validez 16/10/2026) |
-| 4.15 | ADM | `modPro["8","176","15/11/2026"]` | Éxito: total 2000,00 (2176 − 176) |
-| 4.16 | ADM | `genCam["6","Prueba","01/11/2026","30/11/2026"]` → `conf["…"]` | Error: la proforma 6 no está aprobada |
-| 4.17 | ADM | `genCam["4","Lanzamiento Condominio Piraí Norte","05/11/2026","30/11/2026"]` → `conf["…"]` | Éxito: campaña 4 activa |
+| 4.14 | ADM | `lisPro["*"]` | 8 proformas; la 6 figura **vencida** (su validez ya pasó) |
+| 4.15 | ADM | `modPro["8","176","15/12/2026"]` | Éxito: total 2000,00 (2176 − 176) |
+| 4.16 | ADM | `genCam["6","Prueba","01/12/2026","31/12/2026"]` → `conf["…"]` | Error: la proforma 6 no está aprobada |
+| 4.17 | ADM | `genCam["4","Lanzamiento Condominio Piraí Norte","01/12/2026","31/12/2026"]` → `conf["…"]` | Éxito: campaña 4 activa |
 | 4.18 | CLI1 | `lisCam["*"]` | Solo la campaña 1 (Todos Santos 2026) |
 | 4.19 | CLI1 | `mosEmp["1"]` | Su empresa con sus representantes |
 | 4.20 | CLI1 | `mosEmp["2"]` | Error: no pertenece a su empresa |
@@ -138,23 +139,24 @@ Formato: `modUsu["id","nombre","email","teléfono","password","id_rol","id_unida
 | # | Envía | Asunto | Esperado |
 |---|---|---|---|
 | 6.1 | ADM | `lisCan["*"]` | 7 canales: señal abierta, portal web y las redes sociales |
-| 6.2 | DIR | `disEsp["1","05/11/2026","30/11/2026"]` | Espacios libres de la señal abierta: 14, 15, 16, 17, 19 y 20 (el 18 está bloqueado) |
-| 6.3 | ENC | `disEsp["*","01/11/2026","30/11/2026"]` | Calendario libre de noviembre |
+| 6.2 | ADM | `genEsp["1","01/12/2026","10/12/2026","22:00","22:02"]` | Éxito: 10 espacios en la señal abierta (IDs 29 al 38) |
+| 6.3 | DIR | `disEsp["1","01/12/2026","10/12/2026"]` | Espacios libres 29 al 38 |
 | 6.4 | DIR | `insPau["7","10","18"]` | Error: el espacio 18 está bloqueado |
-| 6.5 | DIR | `insPau["7","10","1"]` | Error: el espacio 1 está ocupado / ya pasó |
-| 6.6 | DIR | `insPau["7","2","15"]` | Error: el ítem 7 no pertenece a la proforma de esa campaña |
-| 6.7 | DIR | `insPau["7","10","15"]` | Éxito: pauta 14 el 06/11/2026 20:00 en la señal abierta |
-| 6.8 | DIR | `repPau["14","16"]` → `conf["…"]` | Éxito: pauta 14 pasa al 12/11/2026; el espacio 15 queda libre |
-| 6.9 | DIR | `insPau["5","7","23"]` | Éxito: pauta 15 el 06/11/2026 12:00 en FICCT UAGRM (Facebook) |
+| 6.5 | DIR | `insPau["7","10","1"]` | Error: el espacio 1 está ocupado |
+| 6.6 | DIR | `insPau["7","2","29"]` | Error: el ítem 7 no pertenece a la proforma de esa campaña |
+| 6.7 | DIR | `insPau["7","10","29"]` | Éxito: pauta 14 el 01/12/2026 22:00 en la señal abierta |
+| 6.8 | DIR | `repPau["14","30"]` → `conf["…"]` | Éxito: pauta 14 pasa al 02/12/2026; el espacio 29 queda libre |
+| 6.9 | DIR | `insPau["5","7","23"]` | Éxito: pauta 15 en FICCT UAGRM (Facebook) |
 | 6.10 | ENC | *(revisar su bandeja)* | Llega el correo "Nueva pauta programada en FICCT UAGRM (Facebook)" (RF11) |
-| 6.11 | ENC | `lisNot["*"]` | 4 avisos; los 2 últimos sin leer |
-| 6.12 | ENC | `leeNot["4"]` | Éxito: aviso 4 marcado como leído |
+| 6.11 | ENC | `lisNot["*"]` | 4 avisos; el 3 y el nuevo, sin leer |
+| 6.12 | ENC | `leeNot["3"]` | Éxito: aviso 3 marcado como leído |
 | 6.13 | ENC | `lisPau["*"]` | Solo las pautas de su red: 3, 9, 11 y 15 |
 | 6.14 | ENC | `mosPau["1"]` | Error: no tiene acceso (es de la señal abierta) |
 | 6.15 | CLI1 | `lisPau["*"]` | Solo las de su campaña: 7, 8, 9, 10 y 11 |
-| 6.16 | DIR | `pubPau["10",""]` | Error: la pauta 10 es del 03/11/2026; aún no puede marcarse como publicada |
+| 6.16 | DIR | `pubPau["10",""]` | Éxito: la pauta 10 (emitida ayer) queda publicada |
+| 6.16b | DIR | `pubPau["14",""]` | Error: la pauta 14 es del 02/12/2026; aún no puede marcarse como publicada |
 | 6.17 | DIR | `canPau["13"]` → `conf["…"]` | Éxito: pauta 13 cancelada y espacio 13 libre |
-| 6.18 | ADM | `genEsp["2","23/11/2026","27/11/2026","08:00","23:59"]` | Éxito: 5 espacios en el portal web |
+| 6.18 | ADM | `genEsp["2","14/12/2026","18/12/2026","08:00","23:59"]` | Éxito: 5 espacios en el portal web |
 | 6.19 | ADM | `eliEsp["19"]` → `conf["…"]` | Éxito: espacio 19 bloqueado |
 | 6.20 | ADM | `actEsp["19"]` → `conf["…"]` | Éxito: espacio 19 disponible otra vez |
 
@@ -180,7 +182,7 @@ Formato: `modUsu["id","nombre","email","teléfono","password","id_rol","id_unida
 |---|---|---|---|
 | 8.1 | ADM | `lisMet["3"]` | 2 mediciones de la pauta 3 (Facebook) |
 | 8.2 | ADM | `insMet["12","40500","40500","0","0","0"]` | Éxito: nueva medición de la pauta 12 |
-| 8.3 | ADM | `insMet["10","100","100","0","0","0"]` | Error: la pauta 10 está programada; solo se miden pautas publicadas |
+| 8.3 | ADM | `insMet["11","100","100","0","0","0"]` | Error: la pauta 11 está programada; solo se miden pautas publicadas |
 | 8.4 | ADM | `anaPau["9"]` | Indicadores de la pauta 9: alcance, impresiones, tasa de interacción, CTR |
 | 8.5 | ADM | `anaCam["2"]` | Expo Cupesí 2026: totales por canal y costo por resultado |
 | 8.6 | ENC | `anaRed["7"]` | Crecimiento de seguidores de la red 7 y rendimiento de sus pautas |
@@ -193,13 +195,13 @@ Formato: `modUsu["id","nombre","email","teléfono","password","id_rol","id_unida
 
 | # | Envía | Asunto | Esperado |
 |---|---|---|---|
-| 9.1 | ADM | `tabGen["01/07/2026","31/12/2026"]` | Tablero: ingresos, conversión, campañas activas, pautas, impacto y alertas |
-| 9.2 | DIR | `repCom["01/06/2026","31/12/2026"]` | Proformas por estado (aprobadas, pendientes, vencida, rechazada), ingresos por mes y principales clientes |
+| 9.1 | ADM | `tabGen["*","*"]` | Tablero: ingresos, conversión, campañas activas, pautas, impacto y alertas |
+| 9.2 | DIR | `repCom["*","*"]` | Proformas por estado (aprobadas, pendientes, vencida, rechazada), ingresos por mes y principales clientes |
 | 9.3 | DIR | `repSer["*","*"]` | Servicios y paquetes más vendidos con gráfico de barras |
-| 9.4 | DIR | `repOcu["01/11/2026","30/11/2026"]` | Ocupación de noviembre por canal |
+| 9.4 | DIR | `repOcu["01/12/2026","31/12/2026"]` | Ocupación de diciembre por canal |
 | 9.5 | DIR | `repMat["*","*"]` | Material por estado y tipo, tasa de aprobación y revisiones por revisor |
-| 9.6 | DIR | `repImp["01/08/2026","31/10/2026"]` | Impacto por canal y campaña; las pautas con más interacción |
-| 9.7 | DIR | `repRed["01/07/2026","31/10/2026"]` | Crecimiento de seguidores de las 5 redes |
+| 9.6 | DIR | `repImp["*","*"]` | Impacto por canal y campaña; las pautas con más interacción |
+| 9.7 | DIR | `repRed["*","*"]` | Crecimiento de seguidores de las 5 redes |
 | 9.8 | DIR | `repMon["*","*"]` | Detecciones por plataforma, término y estado (incluye las del punto 7) |
 | 9.9 | CLI1 | `repCli["1","*","*"]` | Vista de su empresa: inversión, campañas e impacto (CPM, costo por interacción) |
 | 9.10 | CLI1 | `repCli["2","*","*"]` | Error: no pertenece a su empresa |
@@ -236,4 +238,4 @@ Formato: `modUsu["id","nombre","email","teléfono","password","id_rol","id_unida
 | 10. Visitante → cliente | 7 | | |
 
 **Nota:** el guion cambia los datos (nuevas proformas, pautas, material, usuarios). Para repetirlo desde cero hay
-que volver a dejar la base como estaba después de `sql/datos.sql`.
+que recrear la base con `sql/schema.sql` y `sql/datos.sql`.
