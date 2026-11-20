@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de ejecucion_scraping.
  * Fila: id_ejecucion, plataforma, fecha_inicio, fecha_fin, estado, mensaje_error, detecciones, paginas_nuevas.
  */
 public class DEjecucion {

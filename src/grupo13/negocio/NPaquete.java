@@ -39,7 +39,6 @@ public class NPaquete {
         }
     }
 
-    /** Tarifas incluidas, con el subtotal (monto × cantidad) de cada una. */
     public List<String[]> listarItems(String idPaquete) throws NegocioException {
         try {
             int id = Validar.id(idPaquete, "id_paquete");
@@ -68,7 +67,6 @@ public class NPaquete {
         }
     }
 
-    /** Recalcula el precio con el nuevo descuento. */
     public void modificar(String idPaquete, String nombre, String descripcion, String descuento) throws NegocioException {
         try {
             int id = Validar.id(idPaquete, "id_paquete");
@@ -155,8 +153,6 @@ public class NPaquete {
             throw NegocioException.bd(e);
         }
     }
-
-    // ===== Reglas de cálculo (usadas también por NTarifa) =====
 
     /** items: filas con monto en [4] y cantidad en [5]. */
     static BigDecimal calcularPrecio(List<String[]> items, BigDecimal descuentoPorcentaje) {

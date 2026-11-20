@@ -65,12 +65,10 @@ public final class MimeUtil {
         }
     }
 
-    /** Codifica un asunto en UTF-8/Base64 para que las tildes lleguen bien. */
     public static String codificarCabecera(String texto) {
         return "=?UTF-8?B?" + Base64.getEncoder().encodeToString(texto.getBytes(StandardCharsets.UTF_8)) + "?=";
     }
 
-    /** Extrae la dirección de correo de "Nombre <correo@x.com>". */
     public static String extraerEmail(String from) {
         Matcher m = EMAIL.matcher(from);
         return m.find() ? m.group() : from.trim();

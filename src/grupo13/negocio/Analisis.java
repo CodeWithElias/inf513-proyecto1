@@ -21,7 +21,6 @@ public final class Analisis {
         this.resumen = resumen;
     }
 
-    /** Fila del objeto analizado (pauta, campaña o red social). */
     public String[] getCabecera() {
         return cabecera;
     }

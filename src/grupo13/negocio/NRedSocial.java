@@ -20,7 +20,6 @@ public class NRedSocial {
     private final DUsuario usuario = new DUsuario();
     private final DUnidad unidad = new DUnidad();
 
-    /** Busca por nombre, plataforma, URL, responsable o unidad. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
@@ -90,7 +89,6 @@ public class NRedSocial {
         }
     }
 
-    /** Baja lógica (registra fecha_baja). */
     public void eliminar(String idCanal) throws NegocioException {
         try {
             int id = Validar.id(idCanal, "id_canal");

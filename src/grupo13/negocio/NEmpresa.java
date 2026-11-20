@@ -15,7 +15,6 @@ public class NEmpresa {
 
     private final DEmpresa datos = new DEmpresa();
 
-    /** Busca por razón social, NIT o nombre comercial. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             return datos.listar(filtro);

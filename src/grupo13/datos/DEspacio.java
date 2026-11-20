@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Capa de datos de espacio_publicitario (calendario de espacios por canal).
  * Fila: id_espacio, canal, tipo_canal, fecha, hora_inicio, hora_fin, estado, campania_que_lo_ocupa, id_canal.
  */
 public class DEspacio {
@@ -64,7 +63,6 @@ public class DEspacio {
                 + " RETURNING id_espacio", idCanal, fecha, inicio, fin);
     }
 
-    /** Inserta el mismo horario en varias fechas, en una transacción. */
     public int insertarVarios(int idCanal, List<LocalDate> fechas, LocalTime inicio, LocalTime fin) throws SQLException {
         return Conexion.enTransaccion(c -> {
             for (LocalDate f : fechas) {

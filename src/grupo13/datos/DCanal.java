@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de canal_difusion (TV, radio, web… y las redes sociales del CU2, que son su especialización).
  * Fila: id_canal, tipo, nombre, activo, fecha_alta, fecha_baja, espacios_disponibles.
  */
 public class DCanal {
@@ -15,7 +14,6 @@ public class DCanal {
             + "   AND e.estado = 'disponible' AND e.fecha >= CURRENT_DATE) AS espacios_disponibles"
             + " FROM canal_difusion c";
 
-    /** Busca por nombre o tipo. */
     public List<String[]> listar(String filtro) throws SQLException {
         if (filtro == null) {
             return Conexion.consultar(SELECT + " ORDER BY c.id_canal");
@@ -42,7 +40,6 @@ public class DCanal {
         return Conexion.insertar("INSERT INTO canal_difusion (tipo, nombre) VALUES (?, ?) RETURNING id_canal", tipo, nombre);
     }
 
-    /** Baja (registra fecha_baja) o alta (la limpia). */
     public int cambiarEstado(int id, boolean activo) throws SQLException {
         return Conexion.ejecutar("UPDATE canal_difusion SET activo = ?,"
                 + " fecha_baja = CASE WHEN ? THEN NULL ELSE CURRENT_DATE END WHERE id_canal = ?", activo, activo, id);

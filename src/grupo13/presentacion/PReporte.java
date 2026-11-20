@@ -9,11 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Presentación del CU8 – Reportes y estadísticas: tabGen, repCom, repSer, repOcu, repMat, repImp, repRed, repMon, repCli.
- * Todos reciben fecha_desde y fecha_hasta (DD/MM/AAAA o "*" = sin límite). Cada reporte combina indicadores,
- * tablas y gráficos de barras.
- */
+/** CU8 – Reportes y estadísticas. Periodo: fecha_desde y fecha_hasta en DD/MM/AAAA o "*" = sin límite. */
 public class PReporte {
 
     public static final String[] PARAMS_PERIODO = {"fecha_desde", "fecha_hasta"};
@@ -23,7 +19,6 @@ public class PReporte {
 
     private final NReporte negocio = new NReporte();
 
-    /** tabGen["desde","hasta"]: tablero general. */
     public Respuesta tablero(List<String> p) throws NegocioException {
         Reporte r = negocio.tablero(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -33,7 +28,6 @@ public class PReporte {
         return respuesta("Tablero general", r, html);
     }
 
-    /** repCom["desde","hasta"]: reporte comercial. */
     public Respuesta comercial(List<String> p) throws NegocioException {
         Reporte r = negocio.comercial(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -49,7 +43,6 @@ public class PReporte {
         return respuesta("Reporte comercial", r, html);
     }
 
-    /** repSer["desde","hasta"]: servicios y paquetes más vendidos. */
     public Respuesta servicios(List<String> p) throws NegocioException {
         Reporte r = negocio.servicios(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String[] col = {"Nombre", "Cantidad", "Monto (Bs)", "% del total"};
@@ -61,7 +54,6 @@ public class PReporte {
         return respuesta("Servicios y paquetes vendidos", r, html);
     }
 
-    /** repOcu["desde","hasta"]: ocupación de la pauta por canal. */
     public Respuesta ocupacion(List<String> p) throws NegocioException {
         Reporte r = negocio.ocupacion(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -72,7 +64,6 @@ public class PReporte {
         return respuesta("Ocupación de la pauta", r, html);
     }
 
-    /** repMat["desde","hasta"]: material publicitario y revisiones. */
     public Respuesta material(List<String> p) throws NegocioException {
         Reporte r = negocio.material(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -86,7 +77,6 @@ public class PReporte {
         return respuesta("Material publicitario", r, html);
     }
 
-    /** repImp["desde","hasta"]: impacto y alcance. */
     public Respuesta impacto(List<String> p) throws NegocioException {
         Reporte r = negocio.impacto(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String[] col = {"Nombre", "Pautas", "Alcance", "Impresiones", "Interacciones", "Clics", "Tasa de interacción (%)"};
@@ -101,7 +91,6 @@ public class PReporte {
         return respuesta("Impacto y alcance", r, html);
     }
 
-    /** repRed["desde","hasta"]: crecimiento de las redes sociales. */
     public Respuesta redes(List<String> p) throws NegocioException {
         Reporte r = negocio.redes(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -113,7 +102,6 @@ public class PReporte {
         return respuesta("Redes sociales", r, html);
     }
 
-    /** repMon["desde","hasta"]: monitoreo de páginas no autorizadas. */
     public Respuesta monitoreo(List<String> p) throws NegocioException {
         Reporte r = negocio.monitoreo(Vista.filtro(p.get(0)), Vista.filtro(p.get(1)));
         String html = indicadores(r)
@@ -126,7 +114,6 @@ public class PReporte {
         return respuesta("Monitoreo de páginas no autorizadas", r, html);
     }
 
-    /** repCli["id_empresa","desde","hasta"]: vista del cliente. */
     public Respuesta cliente(List<String> p) throws NegocioException {
         Reporte r = negocio.cliente(p.get(0), Vista.filtro(p.get(1)), Vista.filtro(p.get(2)));
         String html = indicadores(r)

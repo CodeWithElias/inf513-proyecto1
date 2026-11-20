@@ -170,6 +170,8 @@ grep -rn "to_char\|'Sí'\|'No'" src/grupo13/datos                               
 proyecto-mail/
 ├── README.md
 ├── config.properties              ← credenciales (NO se sube a Git)
+├── config.properties.example      ← plantilla sin contraseñas (sí se sube)
+├── logs/                          ← access.log y error.log (generado, NO se sube)
 ├── lib/postgresql-42.7.4.jar      ← único JAR externo
 ├── sql/schema.sql                 ← esquema completo (ya aplicado en db_grupo13sa)
 ├── out/                           ← .class compilados (generado)
@@ -192,6 +194,7 @@ proyecto-mail/
     │   │   ├── ComandoException   ← error del protocolo de comandos (formato, comando inexistente)
     │   │   └── Permisos.java      ← RF02: matriz de comandos por rol y operaciones críticas (conf)
     │   ├── Html.java              ← pagina, tabla, ficha, esc y formato (t/f, fechas ISO, NULL)
+    │   ├── Bitacora.java          ← logs/access.log (cada correo) y logs/error.log (cada excepción)
     │   ├── Vista.java             ← respuestas típicas (listado, registro, éxito) y filtro "*"
     │   ├── PUsuario, PRol, PUnidad, PRepresentante            (CU1)
     │   ├── PPlataforma, PRedSocial, PSeguidoresRed            (CU2)
@@ -250,7 +253,9 @@ proyecto-mail/
         - `ClienteSMTP.enviar(remitente, titulo + " - " + asunto, html)`.
       - `DELE i` → marca el correo para borrar.
    3. `QUIT` → el servidor elimina definitivamente los correos marcados.
-3. Si falla la conexión, se registra en consola y se reintenta en la siguiente vuelta.
+3. Si falla la conexión, se registra en consola y en `logs/error.log`, y se reintenta en la siguiente vuelta.
+4. Cada correo procesado queda en `logs/access.log` y cada excepción capturada en `logs/error.log` (sección 11, *Bitácora*).
+5. Cada correo se procesa aislado: si algo falla de forma inesperada, el remitente recibe un correo de *Error* (error interno; verificar antes de reenviar), el fallo va a `error.log` y el correo se borra igual, para que no bloquee a los siguientes.
 
 ### Procesamiento de un comando (`Despachador.procesar`)
 ```
@@ -302,7 +307,14 @@ nombreComando["parametro1","parametro2",...]
 - Cada parámetro va **entre comillas dobles** y se separan con **comas**. Se permiten espacios alrededor.
 - Las comas dentro de comillas son parte del valor: `"Perez, Juan"` es un solo parámetro.
 - Parámetro vacío: `""` (se usa para campos opcionales, p. ej. `id_unidad` o "no cambiar la contraseña").
+- **Comilla doble dentro de un parámetro:** se escribe `\"`; una barra invertida, `\\`.
+  Ejemplo: `insSer["Spot \"Prime\"","television","Horario de máxima audiencia"]` guarda el nombre `Spot "Prime"`.
 - Comillas tipográficas `“ ”` (las que ponen algunos celulares) se convierten a `"`.
+- El nombre del comando no distingue mayúsculas: `LISUSU["*"]` es igual a `lisUsu["*"]`.
+- Errores de sintaxis con mensaje propio: comillas sin cerrar, falta de coma, coma de más al final, parámetro sin
+  comillas, cantidad de parámetros distinta a la del comando (la respuesta muestra un ejemplo).
+- Errores de la base de datos con mensaje claro: duplicados (`UNIQUE`), referencias inexistentes o en uso (`FOREIGN KEY`),
+  textos demasiado largos y fallos de conexión. El detalle técnico queda en `logs/error.log`.
 - Comandos sin parámetros pueden ir sin corchetes: `help`.
 - Filtro de listados: `"*"` = todos; cualquier otro texto = búsqueda parcial (`ILIKE '%texto%'`).
 
@@ -787,7 +799,12 @@ los parámetros finales; al terminarlo, moverlo a la tabla de la sección 6.
 ## 11. Compilar, ejecutar y probar
 
 ### Configuración (primera vez)
-`config.properties` **no está en Git**. Crearlo en la raíz del proyecto:
+`config.properties` **no está en Git** y es el único lugar con las contraseñas. Copiar la plantilla y completar
+`mail.password` y `db.password`:
+```bash
+cp config.properties.example config.properties
+```
+Contenido:
 ```properties
 mail.usuario=grupo13sa
 mail.password=********
@@ -805,7 +822,10 @@ app.intervalo=10
 scraping.intervalo.horas=6     # 0 = solo manual (ejeScr)
 scraping.paginas=3             # páginas de resultados de YouTube por búsqueda
 alertas.rol=Administrador      # rol que recibe las alertas del CU6
+log.carpeta=logs               # carpeta de access.log y error.log
 ```
+Si falta una clave obligatoria (por ejemplo `db.password`), el programa se detiene con el mensaje
+*Falta 'db.password' en config.properties*.
 El programa se ejecuta **desde la raíz del proyecto** (ahí busca `config.properties`).
 
 ### Compilar
@@ -829,6 +849,56 @@ Consola esperada:
 [15:30:10] Recibido -> De: juan@gmail.com | Asunto: lisUsu["*"]
 [15:30:11]   Respondido: Listando los Usuarios
 ```
+
+### Bitácora (`access.log` y `error.log`)
+Se crean solos en `logs/` (carpeta configurable con `log.carpeta`) y sirven para la auditoría en la defensa.
+Una línea por evento, campos separados por `|`:
+
+**`logs/access.log`**: cada correo procesado (también los de `--probar` y los ignorados).
+```
+fecha | remitente | rol | asunto | resultado | detalle | duración
+2026-11-19 22:13:43 | eliaspumaclaure48@gmail.com | Administrador | lisRol["*"] | Éxito | Listando los Roles | 310 ms
+2026-11-19 22:15:00 | eliaspumaclaure48@gmail.com | Administrador | xyzAbc["1"] | Error | El comando 'xyzAbc' no existe. | 95 ms
+```
+**`logs/error.log`**: cada excepción capturada, con su tipo. Los tipos `BASE DE DATOS`, `INESPERADO`, `POP3`, `SMTP` y
+`PROGRAMADO` incluyen la traza completa de Java en las líneas siguientes.
+```
+fecha | tipo | remitente | asunto | mensaje
+2026-11-19 22:14:15 | COMANDO | eliaspumaclaure48@gmail.com | insSer["abc] | Falta cerrar comillas en los parámetros (...)
+2026-11-19 22:14:05 | NEGOCIO | eliaspumaclaure48@gmail.com | insPla["YouTube"] | Ya existe una plataforma llamada 'YouTube'.
+```
+| Tipo | Cuándo |
+|---|---|
+| `COMANDO` | Error de sintaxis, comando inexistente, sin permiso, cantidad de parámetros |
+| `NEGOCIO` | Regla de negocio incumplida (validaciones de la capa de negocio) |
+| `BASE DE DATOS` | Error de PostgreSQL (duplicado, clave foránea, conexión…), con la traza |
+| `INESPERADO` | Cualquier otra excepción, con la traza |
+| `POP3` / `SMTP` | No se pudo leer el buzón o enviar una respuesta o aviso |
+| `PROGRAMADO` | Falló el scraping o la captura de métricas automáticos |
+
+### Despliegue (servidor de correo funcionando 24/7)
+El SMTP de la facultad (`mail.tecnoweb.org.bo:25`) solo acepta enviar desde direcciones IP autorizadas; desde otra red
+las respuestas fallan con *550 Relaying denied* (queda en `error.log` con tipo `SMTP`). Dos formas de dejarlo corriendo:
+
+**A. En una PC con IP autorizada.** Pedir al ingeniero que habilite la IP pública fija de esa PC para enviar por el SMTP.
+Luego dejar `App` corriendo en esa PC (sección *Ejecutar el servidor de correo*). Mientras la PC esté apagada, los
+correos esperan en el buzón y se procesan al volver a encenderla.
+
+**B. En el servidor `tecnoweb.org.bo`, por SSH** (si el ingeniero da acceso y el servidor tiene Java 17):
+```bash
+# desde la PC: copiar el proyecto (sin out/ ni logs/)
+scp -r src lib config.properties <usuario>@tecnoweb.org.bo:~/proyecto-mail/
+# en el servidor
+ssh <usuario>@tecnoweb.org.bo
+cd ~/proyecto-mail && mkdir -p logs
+javac -encoding UTF-8 -d out -cp "lib/*" $(find src -name "*.java")
+nohup java -cp "out:lib/*" grupo13.App >> logs/consola.log 2>&1 &   # demonio: sigue al cerrar la sesión SSH
+```
+Para que arranque solo si el servidor se reinicia, agregar con `crontab -e`:
+```
+@reboot cd ~/proyecto-mail && java -cp "out:lib/*" grupo13.App >> logs/consola.log 2>&1
+```
+Detenerlo: `pkill -f grupo13.App`. Solo debe haber **una** instancia corriendo (ver sección 13, *El buzón se vacía*).
 
 ### Probar un comando sin correo (modo `--probar`)
 Por defecto se ejecuta como el **primer administrador activo**. Para probar con otro remitente (otro rol o un visitante):
@@ -871,13 +941,13 @@ java -cp "out;lib/*" grupo13.App --probar "lisUsu[\"*\"]"
 | Tema | Detalle | Recomendación |
 |---|---|---|
 | **El buzón se vacía** | Cada correo leído se procesa y se borra (`DELE` + `QUIT`). Si dos integrantes ejecutan `App` a la vez, se "roban" los correos. | Coordinar quién tiene el servidor corriendo; para desarrollo usar `--probar`. |
-| **Contraseña en el código** | `Config.java` tiene la contraseña del grupo como valor por defecto, así que queda versionada aunque `config.properties` esté en `.gitignore`. | Quitar los valores por defecto de `mail.password` y `db.password` en `Config.java` y depender solo de `config.properties`. |
+| **Contraseña en commits anteriores** | `Config.java` ya no tiene contraseñas (solo `config.properties`, fuera de Git), pero las versiones anteriores del repositorio sí la tenían. | Pedir el cambio de contraseña del grupo o reescribir el historial antes de publicar el repositorio. |
 | **Remitente falsificable** | SMTP no verifica el campo `From`. Mitigado: las respuestas van al correo real (quien falsifica no ve datos) y las operaciones críticas piden un código que llega al correo real. | Las consultas no críticas de un usuario podrían dispararse a su nombre, pero la respuesta solo la recibe él. |
 | Contraseña en el asunto | `insUsu` lleva la contraseña en texto plano en el asunto del correo. | Aceptado para el alcance académico; en la BD se guarda hasheada. |
 | Spam | Gmail puede mandar las respuestas a *Spam* (el servidor no firma DKIM/SPF). | Revisar la carpeta Spam y marcar "No es spam". |
 | Puerto 25 | Algunas redes/ISP bloquean el puerto 25 de salida. | Probar desde la red de la facultad o con otra conexión. |
 | Avisos del RF11 por correo | Se envían con el mismo SMTP; desde redes no autorizadas fallan (relay denegado), pero el aviso queda en `notificacion` y la respuesta lo indica. En `--probar` no se envían. | Ejecutar desde la red de la facultad o en el servidor. |
-| Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde (queda en el log). | Revisar la consola. |
+| Si falla el SMTP | El correo igual se borra del buzón y la respuesta se pierde. | Queda registrado en `logs/access.log` (lo que se ejecutó) y `logs/error.log` (tipo `SMTP`, con la causa). |
 | Datos compartidos | Todos usan la misma `db_grupo13sa`. | Usar datos de prueba identificables y borrarlos al terminar. |
 | Archivos (CU4) | El material se registra por URL (el esquema no tiene dónde guardar el archivo); no se leen adjuntos MIME. | Extensión futura en `presentacion/correo/ClientePOP3` (multipart). |
 | Scraping (CU6) | Facebook y TikTok bloquean bots y exigen login, por eso solo está YouTube. YouTube puede cambiar el formato de su página o limitar consultas automáticas: entonces la ejecución queda en `error` con el motivo en `mensaje_error`. Leer resultados de búsqueda de forma automatizada puede ir contra los términos de uso de la plataforma; mantener volúmenes bajos (`scraping.paginas`, `scraping.intervalo.horas`). | Ajustar `DYoutube` si cambia el formato; revisar `lisEje`. |

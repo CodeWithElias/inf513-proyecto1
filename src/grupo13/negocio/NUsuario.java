@@ -17,7 +17,6 @@ public class NUsuario {
     private final DRol rol = new DRol();
     private final DUnidad unidad = new DUnidad();
 
-    /** filtro null = todos; si no, busca por nombre, email, rol o unidad. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             return datos.listar(filtro);

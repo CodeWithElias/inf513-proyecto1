@@ -238,9 +238,6 @@ public class NScraping {
                 yaRegistradas, detalleErrores, resumen);
     }
 
-    // ===== Reglas =====
-
-    /** Cuenta (canal) encontrada y sus coincidencias, agrupadas por término. */
     private static class Cuenta {
         String channelId;
         String handle;

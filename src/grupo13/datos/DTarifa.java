@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Capa de datos de tarifa (precio de un servicio, opcionalmente por unidad universitaria).
  * Fila: id_tarifa, servicio, unidad, monto, unidad_cobro, duracion_seg, vigente_desde, vigente_hasta, activo.
  */
 public class DTarifa {

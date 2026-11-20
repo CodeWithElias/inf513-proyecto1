@@ -11,7 +11,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Abre conexiones JDBC a PostgreSQL (db_grupo13sa). */
+/** Conexiones JDBC a PostgreSQL. Todo valor va como parámetro de un PreparedStatement, nunca concatenado al SQL. */
 public final class Conexion {
 
     private Conexion() {
@@ -23,9 +23,6 @@ public final class Conexion {
         return DriverManager.getConnection(url, Config.get("db.usuario"), Config.get("db.password"));
     }
 
-    // ===== Ayudantes genéricos (usados desde CU3). Los parámetros se pasan siempre por PreparedStatement. =====
-
-    /** Trabajo que se ejecuta dentro de una transacción. */
     @FunctionalInterface
     public interface Transaccion<T> {
         T ejecutar(Connection c) throws SQLException;
@@ -46,7 +43,6 @@ public final class Conexion {
         }
     }
 
-    /** SELECT con parámetros; devuelve las filas como texto. */
     public static List<String[]> consultar(String sql, Object... params) throws SQLException {
         try (Connection c = abrir()) {
             return consultar(c, sql, params);
@@ -59,13 +55,11 @@ public final class Conexion {
         }
     }
 
-    /** Primera fila del SELECT o null si no hay resultados. */
     public static String[] consultarUno(String sql, Object... params) throws SQLException {
         List<String[]> filas = consultar(sql, params);
         return filas.isEmpty() ? null : filas.get(0);
     }
 
-    /** Primera columna de la primera fila (o null). */
     public static String valor(Connection c, String sql, Object... params) throws SQLException {
         List<String[]> filas = consultar(c, sql, params);
         return filas.isEmpty() ? null : filas.get(0)[0];
@@ -77,7 +71,6 @@ public final class Conexion {
         }
     }
 
-    /** INSERT/UPDATE/DELETE con parámetros; devuelve las filas afectadas. */
     public static int ejecutar(String sql, Object... params) throws SQLException {
         try (Connection c = abrir()) {
             return ejecutar(c, sql, params);
@@ -119,7 +112,6 @@ public final class Conexion {
         return v == null || v.isEmpty() ? null : v;
     }
 
-    /** Primera columna de cada fila como entero (listas de IDs). */
     public static List<Integer> ids(String sql, Object... params) throws SQLException {
         List<Integer> ids = new ArrayList<>();
         for (String[] f : consultar(sql, params)) {
@@ -128,7 +120,6 @@ public final class Conexion {
         return ids;
     }
 
-    /** Los null se envían como NULL; LocalDate, BigDecimal, Integer y String se pasan con setObject. */
     private static PreparedStatement preparar(Connection c, String sql, Object... params) throws SQLException {
         PreparedStatement ps = c.prepareStatement(sql);
         for (int i = 0; i < params.length; i++) {
@@ -141,7 +132,6 @@ public final class Conexion {
         return ps;
     }
 
-    /** Convierte todas las filas de un ResultSet en arreglos de texto. */
     public static List<String[]> leerFilas(ResultSet rs) throws SQLException {
         int n = rs.getMetaData().getColumnCount();
         List<String[]> filas = new ArrayList<>();

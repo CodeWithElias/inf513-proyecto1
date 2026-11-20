@@ -34,7 +34,7 @@ import java.util.Set;
  *    unidad). El aviso queda registrado en la misma transacción.
  * Estados: programada → publicada | cancelada.
  * Fila: id_programacion, campania, empresa, canal, tipo_canal, fecha_programacion, archivo, tipo_material, estado,
- *   url_publicacion, programado_por, id_espacio, id_detalle, id_material, id_canal.
+ *   url_publicacion, programado_por, id_espacio, id_detalle, id_material, id_canal, id_empresa.
  */
 public class NPauta {
 
@@ -42,7 +42,6 @@ public class NPauta {
     public static final String PUBLICADA = "publicada";
     public static final String CANCELADA = "cancelada";
 
-    /** Medio con el que se registra el aviso (además queda en el sistema). */
     public static final String MEDIO = "correo";
 
     private static final DateTimeFormatter FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -67,7 +66,6 @@ public class NPauta {
     private final DUsuario usuario = new DUsuario();
     private final DRepresentante representante = new DRepresentante();
 
-    /** Busca por campaña, empresa, canal o estado. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
@@ -208,8 +206,6 @@ public class NPauta {
             throw NegocioException.bd(e);
         }
     }
-
-    // ===== Reglas =====
 
     /** Espacio libre, futuro, dentro de la campaña y en un canal activo compatible. Devuelve la fila del espacio. */
     private String[] validarEspacio(int idEspacio, String[] cam, String tipoMaterial, String unidadTarifa)

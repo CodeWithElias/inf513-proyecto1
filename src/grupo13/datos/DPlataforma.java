@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de la tabla plataforma (catálogo de redes sociales: Facebook, TikTok, etc.).
  * Fila: id_plataforma, nombre, redes_activas.
  */
 public class DPlataforma {
@@ -39,7 +38,6 @@ public class DPlataforma {
         return Conexion.insertar("INSERT INTO plataforma (nombre) VALUES (?) RETURNING id_plataforma", nombre);
     }
 
-    /** Borrado físico (útil para pruebas y limpieza de datos). */
     public int eliminar(int id) throws SQLException {
         return Conexion.ejecutar("DELETE FROM plataforma WHERE id_plataforma = ?", id);
     }

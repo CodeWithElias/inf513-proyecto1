@@ -29,7 +29,6 @@ public class NUnidad {
         }
     }
 
-    /** Subunidades directas. */
     public List<String[]> listarSubunidades(String idUnidad) throws NegocioException {
         try {
             int id = Validar.id(idUnidad, "id_unidad");

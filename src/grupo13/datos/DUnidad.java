@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de la tabla unidad_universitaria (estructura jerárquica: facultad → carrera…).
  * Fila: id_unidad, nombre, tipo, unidad_padre, activo, encargados_activos.
  */
 public class DUnidad {
@@ -25,17 +24,14 @@ public class DUnidad {
                 + " ORDER BY u.id_unidad", like, like, like);
     }
 
-    /** Devuelve la fila de la unidad o null si no existe. */
     public String[] obtener(int id) throws SQLException {
         return Conexion.consultarUno(SELECT + " WHERE u.id_unidad = ?", id);
     }
 
-    /** Subunidades directas de una unidad. */
     public List<String[]> listarHijas(int id) throws SQLException {
         return Conexion.consultar(SELECT + " WHERE u.id_unidad_padre = ? ORDER BY u.id_unidad", id);
     }
 
-    /** null = no existe, true/false = valor de activo. */
     public Boolean estaActivo(int id) throws SQLException {
         return Conexion.estaActivo("unidad_universitaria", "id_unidad", id);
     }
@@ -66,7 +62,6 @@ public class DUnidad {
                 + " WHERE id_unidad = ?", nombre, Conexion.nulo(tipo), idPadre, id);
     }
 
-    /** Baja / alta lógica. */
     public int cambiarEstado(int id, boolean activo) throws SQLException {
         return Conexion.ejecutar("UPDATE unidad_universitaria SET activo = ? WHERE id_unidad = ?", activo, id);
     }

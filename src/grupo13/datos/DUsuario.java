@@ -16,7 +16,6 @@ public class DUsuario {
             + " JOIN rol r ON r.id_rol = u.id_rol"
             + " LEFT JOIN unidad_universitaria uu ON uu.id_unidad = u.id_unidad";
 
-    /** filtro null = todos; si no, busca por nombre, email, rol o unidad. */
     public List<String[]> listar(String filtro) throws SQLException {
         if (filtro == null) {
             return Conexion.consultar(SELECT + " ORDER BY u.id_usuario");
@@ -26,7 +25,6 @@ public class DUsuario {
                 + " OR uu.nombre ILIKE ? ORDER BY u.id_usuario", like, like, like, like);
     }
 
-    /** Devuelve la fila del usuario o null si no existe. */
     public String[] obtener(int id) throws SQLException {
         return Conexion.consultarUno(SELECT + " WHERE u.id_usuario = ?", id);
     }
@@ -40,12 +38,10 @@ public class DUsuario {
                 + " FROM usuario u JOIN rol r ON r.id_rol = u.id_rol WHERE lower(u.email) = lower(?)", email);
     }
 
-    /** Registra la fecha y hora del último acceso (cada correo que envía). */
     public int registrarAcceso(int id) throws SQLException {
         return Conexion.ejecutar("UPDATE usuario SET ultimo_acceso = CURRENT_TIMESTAMP WHERE id_usuario = ?", id);
     }
 
-    /** null = no existe, true/false = valor de activo. */
     public Boolean estaActivo(int id) throws SQLException {
         return Conexion.estaActivo("usuario", "id_usuario", id);
     }
@@ -63,13 +59,11 @@ public class DUsuario {
                 + " ORDER BY id_usuario", idUnidad);
     }
 
-    /** ¿Otro usuario (distinto de excluirId) ya usa este email? */
     public boolean emailEnUso(String email, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM usuario WHERE lower(email) = lower(?) AND id_usuario <> ?",
                 email, excluirId) > 0;
     }
 
-    /** Devuelve el id generado. */
     public int insertar(String nombre, String email, String telefono, String passwordHash,
                         int idRol, Integer idUnidad) throws SQLException {
         return Conexion.insertar("INSERT INTO usuario (nombre_completo, email, telefono, password_hash, id_rol, id_unidad)"
@@ -89,7 +83,6 @@ public class DUsuario {
                 nombre, email, Conexion.nulo(telefono), idRol, idUnidad, passwordHash, id);
     }
 
-    /** Baja / alta lógica. */
     public int cambiarEstado(int id, boolean activo) throws SQLException {
         return Conexion.ejecutar("UPDATE usuario SET activo = ? WHERE id_usuario = ?", activo, id);
     }

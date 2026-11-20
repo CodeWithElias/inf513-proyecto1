@@ -8,7 +8,7 @@ import grupo13.presentacion.comandos.Respuesta;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Presentación del CU7 – Análisis de impacto: anaPau, anaCam, anaRed. */
+/** CU7 – Análisis de impacto. */
 public class PAnalisis {
 
     private static final String[] COL_INDICADORES = {"Indicador", "Valor", "Cómo se calcula"};
@@ -25,7 +25,6 @@ public class PAnalisis {
 
     private final NAnalisis negocio = new NAnalisis();
 
-    /** anaPau["id_programacion"] */
     public Respuesta pauta(List<String> p) throws NegocioException {
         Analisis a = negocio.analizarPauta(p.get(0));
         String html = Html.tabla(COL_PAUTA, List.<String[]>of(a.getCabecera()), false)
@@ -34,7 +33,6 @@ public class PAnalisis {
         return Respuesta.exito("Análisis de la pauta " + p.get(0), Html.pagina("Análisis de impacto - Pauta " + p.get(0), html));
     }
 
-    /** anaCam["id_campania"]: rendimiento de la campaña (vista para Canal 11 y para el cliente). */
     public Respuesta campania(List<String> p) throws NegocioException {
         Analisis a = negocio.analizarCampania(p.get(0));
         String html = Html.tabla(COL_CAMPANIA, List.<String[]>of(a.getCabecera()), false)
@@ -45,7 +43,6 @@ public class PAnalisis {
                 Html.pagina("Análisis de impacto - Campaña '" + a.getCabecera()[1] + "'", html));
     }
 
-    /** anaRed["id_canal"]: crecimiento de la red social y rendimiento de las pautas publicadas en ella. */
     public Respuesta red(List<String> p) throws NegocioException {
         Analisis a = negocio.analizarRed(p.get(0));
         String html = Html.tabla(COL_RED, List.<String[]>of(a.getCabecera()), false)
@@ -56,7 +53,6 @@ public class PAnalisis {
                 Html.pagina("Análisis de impacto - Red social '" + a.getCabecera()[1] + "'", html));
     }
 
-    /** Valor + unidad en una sola columna; "-" si no hay datos para calcularlo. */
     private static String indicadores(Analisis a) {
         List<String[]> filas = new ArrayList<>();
         for (String[] i : a.getIndicadores()) {

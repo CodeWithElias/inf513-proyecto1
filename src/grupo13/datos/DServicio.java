@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de servicio_publicitario.
  * Fila: id_servicio, nombre, tipo, descripcion, activo, tarifas_activas.
  */
 public class DServicio {

@@ -23,7 +23,7 @@ import java.util.List;
  *  - Propiedad (RF02): el personal de Canal 11 ve todas; un cliente solo las de su empresa; un visitante solo las de
  *    su correo (su registro de visitante se crea solo en la primera cotización). Solo el personal aplica descuentos.
  * Fila de proforma (la que devuelve esta clase): id_proforma, nro_proforma, fecha_emision, fecha_validez,
- *   razon_social_empresa, nombre_visitante, subtotal, descuento, total, estado, items, id_empresa.
+ *   razon_social_empresa, nombre_visitante, subtotal, descuento, total, estado, items, id_empresa, id_visitante.
  * Fila de ítem: id_detalle, id_tarifa, servicio, unidad, unidad_cobro, id_paquete, paquete, cantidad, frecuencia,
  *   precio_unitario, subtotal.
  */
@@ -34,7 +34,6 @@ public class NProforma {
     public static final String RECHAZADA = "rechazada";
     public static final String VENCIDA = "vencida";
 
-    /** Días de validez cuando no se indican. */
     private static final int DIAS_VALIDEZ = 15;
     private static final int DIAS_VALIDEZ_MAX = 365;
 
@@ -53,7 +52,6 @@ public class NProforma {
     private final DTarifa tarifa = new DTarifa();
     private final DPaquete paquete = new DPaquete();
 
-    /** Busca por número, estado, empresa, NIT o visitante. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
@@ -206,7 +204,6 @@ public class NProforma {
         }
     }
 
-    /** Quita un ítem de una proforma pendiente. Devuelve el ID de la proforma. */
     public int quitarItem(String idDetalle) throws NegocioException {
         try {
             int idDet = Validar.id(idDetalle, "id_detalle");
@@ -249,8 +246,6 @@ public class NProforma {
         }
     }
 
-    // ===== Reglas =====
-
     static BigDecimal total(BigDecimal subtotal, BigDecimal descuento) {
         return subtotal.subtract(descuento).max(BigDecimal.ZERO);
     }
@@ -287,8 +282,6 @@ public class NProforma {
         }
         return p;
     }
-
-    // ===== Propiedad (RF02) =====
 
     /** id del visitante con el correo del actor; con 'crear' lo registra si no existe. null si no corresponde. */
     private Integer visitanteDelActor(boolean crear) throws SQLException {

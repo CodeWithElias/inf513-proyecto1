@@ -27,7 +27,6 @@ public class NTarifa {
     private final DUnidad unidad = new DUnidad();
     private final DPaquete paquete = new DPaquete();
 
-    /** Busca por servicio, tipo de servicio, unidad o unidad de cobro. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
@@ -115,8 +114,6 @@ public class NTarifa {
         }
     }
 
-    // ===== Reglas usadas también por NPaquete y NProforma =====
-
     /** Regla de vigencia: activa y hoy dentro de [vigente_desde, vigente_hasta] (extremos opcionales). */
     static boolean esVigente(String[] fila) {
         LocalDate hoy = LocalDate.now();
@@ -132,7 +129,6 @@ public class NTarifa {
         return r;
     }
 
-    /** Campos validados de una tarifa. */
     private static class Datos {
         int idServicio;
         Integer idUnidad;

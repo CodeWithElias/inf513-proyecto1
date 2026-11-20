@@ -12,7 +12,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.UUID;
 
-/** Cliente SMTP implementado con sockets (RFC 5321). */
 public class ClienteSMTP {
 
     private final String host;
@@ -25,7 +24,6 @@ public class ClienteSMTP {
         this.remitente = remitente;
     }
 
-    /** Envía un correo HTML. */
     public void enviar(String destino, String asunto, String html) throws IOException {
         try (Socket socket = new Socket(host, puerto)) {
             socket.setSoTimeout(30000);

@@ -7,7 +7,7 @@ import grupo13.presentacion.comandos.Respuesta;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Presentación del CU3 – Proformas y cotizaciones: lisPro, mosPro, insPro, modPro, addDet, quiDet, aprPro, recPro. */
+/** CU3 – Proformas y cotizaciones. */
 public class PProforma {
 
     private static final String[] COLUMNAS = {"ID", "Nro", "Emisión", "Válida hasta", "Cliente",
@@ -17,7 +17,6 @@ public class PProforma {
 
     private final NProforma negocio = new NProforma();
 
-    /** lisPro["*"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         List<String[]> filas = new ArrayList<>();
         for (String[] f : negocio.listar(Vista.filtro(p.get(0)))) {
@@ -32,7 +31,6 @@ public class PProforma {
         return Respuesta.exito("Cotización " + f[1], Html.pagina("Cotización " + f[1], cotizacion(p.get(0))));
     }
 
-    /** insPro["id_empresa","id_visitante","dias_validez","descuento_Bs"] */
     public Respuesta insertar(List<String> p) throws NegocioException {
         int id = negocio.insertar(p.get(0), p.get(1), p.get(2), p.get(3));
         return Vista.exito("Proforma creada. Agregue servicios con addDet[\"" + id
@@ -40,25 +38,21 @@ public class PProforma {
                 + "\",\"\",\"id_paquete\",\"cantidad\",\"frecuencia\"].", cotizacion(String.valueOf(id)));
     }
 
-    /** modPro["id","descuento_Bs","fecha_validez"] */
     public Respuesta modificar(List<String> p) throws NegocioException {
         negocio.modificar(p.get(0), p.get(1), p.get(2));
         return Vista.exito("La proforma fue modificada y sus totales recalculados.", cotizacion(p.get(0)));
     }
 
-    /** addDet["id_proforma","id_tarifa","id_paquete","cantidad","frecuencia"] */
     public Respuesta agregarDetalle(List<String> p) throws NegocioException {
         negocio.agregarItem(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4));
         return Vista.exito("Se agregó el ítem a la proforma.", cotizacion(p.get(0)));
     }
 
-    /** quiDet["id_detalle"] */
     public Respuesta quitarDetalle(List<String> p) throws NegocioException {
         int idProforma = negocio.quitarItem(p.get(0));
         return Vista.exito("Se quitó el ítem " + p.get(0) + " de la proforma.", cotizacion(String.valueOf(idProforma)));
     }
 
-    /** aprPro["id"] */
     public Respuesta aprobar(List<String> p) throws NegocioException {
         boolean esDeEmpresa = negocio.aprobar(p.get(0));
         String siguiente = esDeEmpresa
@@ -67,13 +61,11 @@ public class PProforma {
         return Vista.exito("La proforma fue aprobada." + siguiente, cotizacion(p.get(0)));
     }
 
-    /** recPro["id"] */
     public Respuesta rechazar(List<String> p) throws NegocioException {
         negocio.rechazar(p.get(0));
         return Vista.exito("La proforma fue rechazada.", cotizacion(p.get(0)));
     }
 
-    /** Documento de cotización: cabecera, ítems y totales. */
     private String cotizacion(String id) throws NegocioException {
         String[] f = negocio.obtener(id);
         List<String[]> items = new ArrayList<>();

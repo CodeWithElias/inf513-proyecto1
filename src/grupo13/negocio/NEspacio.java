@@ -127,12 +127,10 @@ public class NEspacio {
         }
     }
 
-    /** Bloquea un espacio disponible (no se podrá programar). */
     public void bloquear(String idEspacio) throws NegocioException {
         cambiar(idEspacio, DISPONIBLE, BLOQUEADO, "solo se bloquean espacios disponibles");
     }
 
-    /** Libera un espacio bloqueado. */
     public void desbloquear(String idEspacio) throws NegocioException {
         cambiar(idEspacio, BLOQUEADO, DISPONIBLE, "solo se desbloquean espacios bloqueados");
     }
@@ -149,8 +147,6 @@ public class NEspacio {
             throw NegocioException.bd(ex);
         }
     }
-
-    // ===== Reglas =====
 
     private static void validarHorario(LocalTime ini, LocalTime fin) throws NegocioException {
         if (!ini.isBefore(fin)) {

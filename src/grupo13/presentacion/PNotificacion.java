@@ -6,7 +6,7 @@ import grupo13.presentacion.comandos.Respuesta;
 
 import java.util.List;
 
-/** Presentación del CU5 – Notificaciones: lisNot, leeNot. */
+/** CU5 – Notificaciones. */
 public class PNotificacion {
 
     private static final String[] COLUMNAS = {"ID", "Fecha", "Medio", "Título", "Mensaje", "Leída", "Pauta"};
@@ -19,7 +19,6 @@ public class PNotificacion {
         return Vista.listado(titulo, titulo, COLUMNAS, negocio.listar(Vista.filtro(p.get(0))));
     }
 
-    /** leeNot["id_notificacion"] */
     public Respuesta marcarLeida(List<String> p) throws NegocioException {
         int idUsuario = negocio.marcarLeida(p.get(0));
         return Vista.exito("La notificación " + p.get(0) + " fue marcada como leída.",

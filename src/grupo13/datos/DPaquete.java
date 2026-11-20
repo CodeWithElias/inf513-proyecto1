@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de paquete y paquete_item.
  * El precio_total lo calcula la capa de negocio; aquí solo se guarda junto con cada cambio (en transacción).
  * Fila: id_paquete, nombre, descripcion, descuento, precio_total, items, activo.
  */
@@ -68,7 +67,6 @@ public class DPaquete {
         });
     }
 
-    /** Quita la tarifa y guarda el nuevo precio del paquete. */
     public int quitarItem(int idPaquete, int idTarifa, BigDecimal precioTotal) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int n = Conexion.ejecutar(c, "DELETE FROM paquete_item WHERE id_paquete = ? AND id_tarifa = ?", idPaquete, idTarifa);

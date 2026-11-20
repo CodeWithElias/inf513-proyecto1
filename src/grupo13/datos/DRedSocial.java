@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Capa de datos de red_social y su superclase canal_difusion.
  * red_social ES UN canal_difusion (generalización con id_canal como PK y FK).
  * Fila: id_canal, nombre, plataforma, url, responsable, unidad, seguidores, activo, fecha_alta, fecha_baja.
  */
@@ -46,7 +45,6 @@ public class DRedSocial {
         return urls;
     }
 
-    /** null = no existe, true/false = activo. */
     public Boolean estaActivo(int idCanal) throws SQLException {
         String v = Conexion.valor("SELECT c.activo FROM red_social r JOIN canal_difusion c ON c.id_canal = r.id_canal"
                 + " WHERE r.id_canal = ?", idCanal);
@@ -63,7 +61,6 @@ public class DRedSocial {
                 + " AND id_canal <> ?", nombre, excluirId) > 0;
     }
 
-    /** Inserta en canal_difusion y luego en red_social dentro de una transacción. */
     public int insertar(String nombre, String url, int idPlataforma, Integer idUsuario, Integer idUnidad)
             throws SQLException {
         return Conexion.enTransaccion(c -> {
@@ -75,7 +72,6 @@ public class DRedSocial {
         });
     }
 
-    /** Modifica los datos del canal y de la red social en una transacción. */
     public int modificar(int idCanal, String nombre, String url, int idPlataforma, Integer idUsuario, Integer idUnidad)
             throws SQLException {
         return Conexion.enTransaccion(c -> {
@@ -89,19 +85,16 @@ public class DRedSocial {
         });
     }
 
-    /** Baja lógica: inactiva el canal y registra fecha_baja. */
     public int eliminar(int idCanal) throws SQLException {
         return Conexion.ejecutar("UPDATE canal_difusion SET activo = FALSE, fecha_baja = CURRENT_DATE"
                 + " WHERE id_canal = ? AND tipo = 'red_social'", idCanal);
     }
 
-    /** Reactiva el canal y limpia la fecha_baja. */
     public int activar(int idCanal) throws SQLException {
         return Conexion.ejecutar("UPDATE canal_difusion SET activo = TRUE, fecha_baja = NULL"
                 + " WHERE id_canal = ? AND tipo = 'red_social'", idCanal);
     }
 
-    /** Borrado físico en cascada (para limpieza de datos en pruebas). */
     public int eliminarFisico(int idCanal) throws SQLException {
         return Conexion.ejecutar("DELETE FROM canal_difusion WHERE id_canal = ? AND tipo = 'red_social'", idCanal);
     }

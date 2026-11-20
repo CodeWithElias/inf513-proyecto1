@@ -37,7 +37,6 @@ public class NAutenticacion {
         }
     }
 
-    /** Correo del primer administrador activo (lo usa el modo de prueba cuando no se indica remitente), o null. */
     public String correoAdministrador() throws NegocioException {
         try {
             List<String[]> admins = usuario.activosDeRol(Actor.ADMINISTRADOR);

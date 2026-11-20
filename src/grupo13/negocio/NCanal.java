@@ -16,10 +16,8 @@ public class NCanal {
 
     public static final String RED_SOCIAL = "red_social";
 
-    /** Tipos que se registran en este CU. */
     public static final Set<String> TIPOS = Set.of("television", "radio", "web");
 
-    /** Tipos de material que acepta cada tipo de canal. */
     static final Map<String, Set<String>> MATERIAL_ACEPTADO = Map.of(
             "television", Set.of("video", "texto", "banner"),
             "radio", Set.of("audio", "texto"),
@@ -30,7 +28,6 @@ public class NCanal {
 
     private final DCanal datos = new DCanal();
 
-    /** Busca por nombre o tipo. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             return datos.listar(filtro);
@@ -104,7 +101,6 @@ public class NCanal {
         return t;
     }
 
-    /** Canal que se administra en este CU (no una red social). */
     private String[] buscarPropio(int id) throws SQLException, NegocioException {
         String[] c = buscar(id);
         if (RED_SOCIAL.equals(c[TIPO])) {

@@ -46,7 +46,10 @@ public class Comando {
         return new Comando(nombre, params);
     }
 
-    /** Separa "a","b , c","d" respetando comas dentro de las comillas. */
+    /**
+     * Separa "a","b , c","d" respetando comas dentro de las comillas.
+     * Dentro de un parámetro, \" es una comilla doble y \\ una barra invertida: "Spot \"Prime\"" → Spot "Prime".
+     */
     private static List<String> parsearParametros(String texto) throws ComandoException {
         List<String> lista = new ArrayList<>();
         int i = 0;
@@ -59,12 +62,22 @@ public class Comando {
             if (texto.charAt(i) != '"') {
                 throw new ComandoException("Cada parámetro debe ir entre comillas dobles (\"...\").");
             }
-            int cierre = texto.indexOf('"', i + 1);
-            if (cierre < 0) {
-                throw new ComandoException("Falta cerrar comillas en los parámetros.");
+            StringBuilder valor = new StringBuilder();
+            int j = i + 1;
+            while (j < n && texto.charAt(j) != '"') {
+                char c = texto.charAt(j);
+                if (c == '\\' && j + 1 < n && (texto.charAt(j + 1) == '"' || texto.charAt(j + 1) == '\\')) {
+                    c = texto.charAt(++j);
+                }
+                valor.append(c);
+                j++;
             }
-            lista.add(texto.substring(i + 1, cierre).trim());
-            i = saltarEspacios(texto, cierre + 1);
+            if (j == n) {
+                throw new ComandoException("Falta cerrar comillas en los parámetros (para una comilla dentro del texto"
+                        + " use \\\").");
+            }
+            lista.add(valor.toString().trim());
+            i = saltarEspacios(texto, j + 1);
             if (i == n) {
                 return lista;
             }

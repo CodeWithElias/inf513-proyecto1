@@ -6,7 +6,7 @@ import grupo13.presentacion.comandos.Respuesta;
 
 import java.util.List;
 
-/** Presentación del CU6 – Páginas no autorizadas: lisPag, mosPag, modPag. */
+/** CU6 – Páginas no autorizadas. */
 public class PPagina {
 
     private static final String[] COLUMNAS = {"ID", "URL", "Nombre", "Plataforma", "Estado", "Detecciones",
@@ -15,19 +15,16 @@ public class PPagina {
 
     private final NPagina negocio = new NPagina();
 
-    /** lisPag["*"] o lisPag["detectada"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         return Vista.listado("Listando las Páginas no autorizadas", "Páginas no autorizadas", COLUMNAS,
                 negocio.listar(Vista.filtro(p.get(0))));
     }
 
-    /** mosPag["id"]: la página y sus detecciones con evidencia. */
     public Respuesta mostrar(List<String> p) throws NegocioException {
         return Respuesta.exito("Página no autorizada " + p.get(0),
                 Html.pagina("Página no autorizada " + p.get(0), detalle(p.get(0))));
     }
 
-    /** modPag["id_pagina","estado"] (revisa el remitente) */
     public Respuesta revisar(List<String> p) throws NegocioException {
         negocio.revisar(p.get(0), p.get(1));
         return Vista.exito("La página " + p.get(0) + " pasó a estado " + p.get(1).toLowerCase() + ".", detalle(p.get(0)));

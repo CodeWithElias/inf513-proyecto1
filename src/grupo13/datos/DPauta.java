@@ -25,7 +25,6 @@ public class DPauta {
             + " LEFT JOIN canal_difusion c ON c.id_canal = esp.id_canal"
             + " LEFT JOIN usuario u ON u.id_usuario = pp.id_usuario";
 
-    /** Busca por campaña, empresa, canal o estado. */
     public List<String[]> listar(String filtro) throws SQLException {
         if (filtro == null) {
             return Conexion.consultar(SELECT + " ORDER BY pp.fecha_programacion, pp.id_programacion");

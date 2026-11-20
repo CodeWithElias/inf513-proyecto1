@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de la tabla rol.
  * Fila: id_rol, nombre, descripcion, activo, usuarios_activos.
  */
 public class DRol {
@@ -22,17 +21,14 @@ public class DRol {
         return Conexion.consultar(SELECT + " WHERE r.nombre ILIKE ? OR r.descripcion ILIKE ? ORDER BY r.id_rol", like, like);
     }
 
-    /** Devuelve la fila del rol o null si no existe. */
     public String[] obtener(int id) throws SQLException {
         return Conexion.consultarUno(SELECT + " WHERE r.id_rol = ?", id);
     }
 
-    /** null = no existe, true/false = valor de activo. */
     public Boolean estaActivo(int id) throws SQLException {
         return Conexion.estaActivo("rol", "id_rol", id);
     }
 
-    /** ¿Otro rol (distinto de excluirId) ya usa este nombre? */
     public boolean existeNombre(String nombre, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM rol WHERE lower(nombre) = lower(?) AND id_rol <> ?",
                 nombre, excluirId) > 0;
@@ -52,7 +48,6 @@ public class DRol {
                 nombre, Conexion.nulo(descripcion), id);
     }
 
-    /** Baja / alta lógica. */
     public int cambiarEstado(int id, boolean activo) throws SQLException {
         return Conexion.ejecutar("UPDATE rol SET activo = ? WHERE id_rol = ?", activo, id);
     }

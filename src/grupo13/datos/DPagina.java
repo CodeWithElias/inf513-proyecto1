@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de pagina_no_autorizada y su composición deteccion_pagina.
  * Fila de página: id_pagina, url, nombre_pagina, plataforma, estado, detecciones, ultima_deteccion, fecha_revision,
  *   revisado_por, id_plataforma.
  * Fila de detección: id_deteccion, fecha_deteccion, termino, evidencia, id_ejecucion.
@@ -22,7 +21,6 @@ public class DPagina {
             + " JOIN plataforma pl ON pl.id_plataforma = p.id_plataforma"
             + " LEFT JOIN usuario u ON u.id_usuario = p.id_usuario";
 
-    /** Busca por URL, nombre, estado o plataforma. */
     public List<String[]> listar(String filtro) throws SQLException {
         if (filtro == null) {
             return Conexion.consultar(SELECT + " ORDER BY p.id_pagina");

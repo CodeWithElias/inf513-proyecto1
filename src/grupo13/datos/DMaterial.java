@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de material_publicitario y su composición revision_material.
  * Fila de material: id_material, campania, razon_social, tipo, nombre_archivo, formato, url_archivo, duracion_seg,
  *   version, estado, fecha_carga, subido_por, texto_publicacion, id_campania, id_empresa.
  * Fila de revisión: id_revision, fecha, resultado, observaciones, revisor.
@@ -21,7 +20,6 @@ public class DMaterial {
             + " LEFT JOIN empresa_anunciante e ON e.id_empresa = p.id_empresa"
             + " LEFT JOIN usuario u ON u.id_usuario = m.id_usuario";
 
-    /** Busca por nombre de archivo, tipo, estado, campaña o empresa. */
     public List<String[]> listar(String filtro) throws SQLException {
         if (filtro == null) {
             return Conexion.consultar(SELECT + " ORDER BY m.id_material");
@@ -35,7 +33,6 @@ public class DMaterial {
         return Conexion.consultarUno(SELECT + " WHERE m.id_material = ?", id);
     }
 
-    /** Historial de revisiones del material (la más reciente primero). */
     public List<String[]> revisiones(int id) throws SQLException {
         return Conexion.consultar("SELECT r.id_revision, r.fecha, r.resultado, r.observaciones, u.nombre_completo"
                 + " FROM revision_material r LEFT JOIN usuario u ON u.id_usuario = r.id_usuario"
@@ -59,7 +56,6 @@ public class DMaterial {
         return v == null ? null : Integer.parseInt(v);
     }
 
-    /** Veces que el material está usado en la programación de pautas. */
     public int contarProgramaciones(int id) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM programacion_pauta WHERE id_material = ?", id);
     }
@@ -72,7 +68,6 @@ public class DMaterial {
                 idCampania, idUsuario, tipo, nombreArchivo, Conexion.nulo(url), formato, duracionSeg, Conexion.nulo(texto));
     }
 
-    /** Corrige los datos sin cambiar la versión. */
     public int modificar(int id, String tipo, String nombreArchivo, String url, String formato, Integer duracionSeg,
                          String texto) throws SQLException {
         return Conexion.ejecutar("UPDATE material_publicitario SET tipo = ?, nombre_archivo = ?, url_archivo = ?,"

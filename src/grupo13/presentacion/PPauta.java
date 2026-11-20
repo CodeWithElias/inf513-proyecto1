@@ -8,7 +8,7 @@ import grupo13.presentacion.correo.Notificador;
 
 import java.util.List;
 
-/** Presentación del CU5 – Programación de pauta: lisPau, mosPau, insPau, repPau, canPau, pubPau. */
+/** CU5 – Programación de pauta. */
 public class PPauta {
 
     public static final String[] PARAMS_PROGRAMAR = {"id_detalle", "id_material", "id_espacio"};
@@ -18,35 +18,29 @@ public class PPauta {
 
     private final NPauta negocio = new NPauta();
 
-    /** lisPau["*"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         return Vista.listado("Listando la Pauta", "Pauta Multicanal", COLUMNAS, negocio.listar(Vista.filtro(p.get(0))));
     }
 
-    /** mosPau["id"] */
     public Respuesta mostrar(List<String> p) throws NegocioException {
         return Vista.registro("Pauta " + p.get(0), COLUMNAS, negocio.obtener(p.get(0)));
     }
 
-    /** insPau["id_detalle","id_material","id_espacio"] (programa el remitente) */
     public Respuesta programar(List<String> p) throws NegocioException {
         ResultadoPauta r = negocio.programar(p.get(0), p.get(1), p.get(2));
         return conAvisos("La pauta fue programada con ID " + r.getIdProgramacion() + ".", r);
     }
 
-    /** repPau["id_programacion","id_espacio_nuevo"] */
     public Respuesta reprogramar(List<String> p) throws NegocioException {
         ResultadoPauta r = negocio.reprogramar(p.get(0), p.get(1));
         return conAvisos("La pauta " + p.get(0) + " fue reprogramada; el espacio anterior quedó disponible.", r);
     }
 
-    /** canPau["id_programacion"] */
     public Respuesta cancelar(List<String> p) throws NegocioException {
         ResultadoPauta r = negocio.cancelar(p.get(0));
         return conAvisos("La pauta " + p.get(0) + " fue cancelada y su espacio quedó disponible.", r);
     }
 
-    /** pubPau["id_programacion","url_publicacion"] */
     public Respuesta publicar(List<String> p) throws NegocioException {
         negocio.publicar(p.get(0), p.get(1));
         return Vista.exito("La pauta " + p.get(0) + " fue marcada como publicada.", COLUMNAS, negocio.obtener(p.get(0)));

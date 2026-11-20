@@ -25,7 +25,6 @@ public final class Html {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
-    /** Formato de presentación de un valor crudo. */
     public static String formato(String v) {
         if (v == null) {
             return "-";
@@ -134,7 +133,6 @@ public final class Html {
         }
     }
 
-    /** Tabla de dos columnas etiqueta → valor (ficha de un registro). */
     public static String ficha(String[][] pares) {
         StringBuilder sb = new StringBuilder("<table cellpadding='4'>");
         for (String[] par : pares) {

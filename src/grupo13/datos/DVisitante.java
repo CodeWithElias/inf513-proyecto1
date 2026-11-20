@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de visitante (persona no registrada que pide una cotización).
  * Fila: id_visitante, nombre, email, telefono, fecha_registro, proformas.
  */
 public class DVisitante {

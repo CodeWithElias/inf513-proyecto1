@@ -24,7 +24,7 @@ import java.util.TreeSet;
  *  - Revisa personal de Canal 11: usuario activo que no sea representante de una empresa. Rechazo y corrección
  *    exigen observaciones. Cada revisión queda registrada.
  * Fila de material: id_material, campania, razon_social, tipo, nombre_archivo, formato, url_archivo, duracion_seg,
- *   version, estado, fecha_carga, subido_por, texto_publicacion, id_campania.
+ *   version, estado, fecha_carga, subido_por, texto_publicacion, id_campania, id_empresa.
  * Fila de revisión: id_revision, fecha, resultado, observaciones, revisor.
  */
 public class NMaterial {
@@ -35,7 +35,6 @@ public class NMaterial {
     public static final String CORRECCION = "correccion";
     public static final String RETIRADO = "retirado";
 
-    /** Formatos (extensiones) permitidos por tipo de material. */
     public static final Map<String, Set<String>> FORMATOS = Map.of(
             "video", Set.of("mp4", "mov", "avi", "mkv"),
             "audio", Set.of("mp3", "wav", "aac", "ogg"),
@@ -60,7 +59,6 @@ public class NMaterial {
     private final DUsuario usuario = new DUsuario();
     private final DRepresentante representante = new DRepresentante();
 
-    /** Busca por archivo, tipo, estado, campaña o empresa. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             List<String[]> filas = new ArrayList<>();
@@ -227,9 +225,6 @@ public class NMaterial {
         }
     }
 
-    // ===== Reglas de contenido =====
-
-    /** Contenido validado de un material. */
     private static class Contenido {
         String nombre;
         String url;
@@ -287,7 +282,6 @@ public class NMaterial {
         return CORRECCION.equals(estado) ? "en corrección" : estado;
     }
 
-    /** Extensión del archivo en minúsculas (sin el punto). */
     private static String extension(String nombre) throws NegocioException {
         int punto = nombre.lastIndexOf('.');
         if (punto < 1 || punto == nombre.length() - 1) {

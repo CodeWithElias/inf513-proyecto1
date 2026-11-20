@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * CU3: campañas contratadas, generadas desde una proforma aprobada de una empresa (base para CU4 y CU5).
- * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total.
+ * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total, id_empresa.
  */
 public class NCampania {
 

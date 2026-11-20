@@ -1,5 +1,7 @@
 package grupo13;
 
+import grupo13.presentacion.Bitacora;
+import grupo13.presentacion.Html;
 import grupo13.presentacion.PMetrica;
 import grupo13.presentacion.PScraping;
 import grupo13.presentacion.comandos.Despachador;
@@ -22,6 +24,8 @@ import java.time.format.DateTimeFormatter;
  *   java -cp ... grupo13.App                    -> revisa el buzón cada N segundos y ejecuta el scraping cada N horas
  *   java -cp ... grupo13.App --probar "ASUNTO"  -> ejecuta un comando sin correo, como el primer administrador activo
  *   java -cp ... grupo13.App --probar --como correo@x.com "ASUNTO"  -> lo ejecuta como ese remitente
+ *
+ * Bitácora para la auditoría en logs/access.log (cada correo) y logs/error.log (cada excepción capturada).
  */
 public class App {
 
@@ -41,7 +45,7 @@ public class App {
             Notificador.desactivar(); // en pruebas los avisos (RF11) se registran pero no se envían por correo
             int desde = 1;
             String remitente;
-            if (args.length >= 4 && args[1].equals("--como")) { // --probar --como correo@x.com COMANDO
+            if (args.length >= 4 && args[1].equals("--como")) {
                 remitente = args[2];
                 desde = 3;
             } else {
@@ -70,6 +74,10 @@ public class App {
                 app.revisarBuzon();
             } catch (IOException e) {
                 log("Error de conexión: " + e.getMessage());
+                Bitacora.error("POP3", "No se pudo leer el buzón: " + e.getMessage(), e);
+            } catch (RuntimeException e) {
+                log("Error inesperado: " + e);
+                Bitacora.error("INESPERADO", "Fallo al procesar el buzón: " + e, e);
             }
             if (cadaScraping > 0 && System.currentTimeMillis() >= proximoScraping) {
                 app.scrapingProgramado();
@@ -81,46 +89,76 @@ public class App {
 
     /** CU6 / RF12 y CU7 / RF13: monitoreo de páginas no autorizadas y captura de métricas de YouTube. */
     private void scrapingProgramado() {
-        log("Iniciando scraping programado...");
-        for (String linea : scraping.ejecutarProgramado()) {
-            log("  " + linea);
-        }
-        log("Capturando métricas de las pautas publicadas en YouTube (CU7)...");
-        for (String linea : metricas.capturarProgramado()) {
-            log("  " + linea);
+        try {
+            log("Iniciando scraping programado...");
+            for (String linea : scraping.ejecutarProgramado()) {
+                log("  " + linea);
+            }
+            log("Capturando métricas de las pautas publicadas en YouTube (CU7)...");
+            for (String linea : metricas.capturarProgramado()) {
+                log("  " + linea);
+            }
+        } catch (RuntimeException e) {
+            log("Error en el proceso programado: " + e);
+            Bitacora.error("PROGRAMADO", "Fallo en el scraping o la captura de métricas: " + e, e);
         }
     }
 
-    /** Descarga y borra los correos nuevos, luego responde cada uno. */
+    /**
+     * Descarga y borra los correos nuevos, luego responde cada uno. Cada correo se procesa aislado: si falla de forma
+     * inesperada, se avisa al remitente y se borra igual, para que no bloquee a los siguientes en cada vuelta.
+     */
     private void revisarBuzon() throws IOException {
         try (ClientePOP3 pop = new ClientePOP3(Config.get("pop3.host"), Config.getInt("pop3.puerto"))) {
             pop.login(Config.get("mail.usuario"), Config.get("mail.password"));
             int total = pop.cantidadMensajes();
             for (int i = 1; i <= total; i++) {
-                //correos.add(pop.obtener(i));
-                procesar(pop.obtener(i));
+                Correo correo = pop.obtener(i);
+                try {
+                    procesar(correo);
+                } catch (RuntimeException e) {
+                    log("  Error inesperado: " + e);
+                    Bitacora.error("INESPERADO", correo.getRemitente(), correo.getAsunto(), String.valueOf(e), e);
+                    responderFalla(correo);
+                }
                 pop.eliminar(i);
             }
         } // QUIT confirma la eliminación
+    }
 
+    /** Respuesta de último recurso: el remitente siempre sabe que su correo llegó aunque no se pudo procesar. */
+    private void responderFalla(Correo correo) {
+        String html = Html.pagina("Error",
+                "<p>Ocurrió un error interno al procesar su correo con el asunto <code>" + Html.esc(correo.getAsunto())
+                        + "</code>.</p><p style='color:#b00020'>Es posible que la orden no se haya ejecutado: verifíquelo"
+                        + " antes de reenviarla. Si el problema continúa, comuníquese con el administrador.</p>");
+        try {
+            smtp.enviar(correo.getRemitente(), "Error - " + correo.getAsunto(), html);
+        } catch (IOException | RuntimeException e) {
+            Bitacora.error("SMTP", correo.getRemitente(), correo.getAsunto(),
+                    "No se pudo avisar del error interno: " + e.getMessage(), e);
+        }
     }
 
     private void procesar(Correo correo) {
         log("Recibido -> " + correo);
         String remitente = correo.getRemitente().toLowerCase();
-        // Evita bucles: no responder a nosotros mismos ni a rebotes del servidor
-        if (remitente.equals(Config.get("mail.direccion").toLowerCase())
+        // Evita bucles: no responder a nosotros mismos ni a rebotes del servidor (ni a un correo sin remitente)
+        if (remitente.isBlank() || remitente.equals(Config.get("mail.direccion").toLowerCase())
                 || remitente.contains("mailer-daemon") || remitente.contains("postmaster")) {
-            log("  Ignorado (remitente del sistema)");
+            log("  Ignorado (remitente del sistema o vacío)");
+            Bitacora.acceso(remitente, "-", correo.getAsunto(), "Ignorado", "remitente del sistema, rebote o vacío", 0);
             return;
         }
 
-        Respuesta asunto = despachador.procesar(correo.getRemitente(), correo.getAsunto()); // RF02: el remitente identifica al usuario
+        Respuesta asunto = despachador.procesar(correo.getRemitente(), correo.getAsunto());
         try {
             smtp.enviar(correo.getRemitente(), asunto.getTitulo() + " - " + correo.getAsunto(), asunto.getHtml());
             log("  Respondido: " + asunto.getTitulo());
         } catch (IOException e) {
             log("  No se pudo enviar la respuesta: " + e.getMessage());
+            Bitacora.error("SMTP", correo.getRemitente(), correo.getAsunto(),
+                    "No se pudo enviar la respuesta: " + e.getMessage(), e);
         }
     }
 

@@ -1,6 +1,5 @@
 package grupo13.presentacion.correo;
 
-/** Correo recibido (solo lo que necesitamos: remitente y asunto). */
 public class Correo {
 
     private final String remitente;

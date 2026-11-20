@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos para la tabla seguidores_red (historial y registro de seguidores por red social).
  * Fila: id_seguidores, red_social, fecha, seguidores.
  */
 public class DSeguidoresRed {

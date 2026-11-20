@@ -87,8 +87,6 @@ public final class Validar {
         return Integer.parseInt(valor);
     }
 
-    // ===== CU3: montos, porcentajes y fechas =====
-
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
     /** Monto con hasta 2 decimales; acepta punto o coma (150.50 / 150,50). */
@@ -108,7 +106,6 @@ public final class Validar {
         return m;
     }
 
-    /** Porcentaje entre 0 y 100. */
     public static BigDecimal porcentaje(String valor, String campo) throws NegocioException {
         BigDecimal p = monto(valor, campo);
         if (p.compareTo(new BigDecimal("100")) > 0) {
@@ -132,7 +129,6 @@ public final class Validar {
         return valor.isEmpty() ? null : fecha(valor, campo);
     }
 
-    /** Verifica que desde <= hasta cuando ambas están presentes. */
     public static void rangoFechas(LocalDate desde, LocalDate hasta, String campoDesde, String campoHasta)
             throws NegocioException {
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
@@ -140,7 +136,6 @@ public final class Validar {
         }
     }
 
-    /** Entero positivo opcional ("" = null). */
     public static Integer enteroOpcional(String valor, String campo) throws NegocioException {
         return valor.isEmpty() ? null : id(valor, campo);
     }
@@ -153,7 +148,6 @@ public final class Validar {
         return valor;
     }
 
-    /** Email opcional ("" = sin email). */
     public static String emailOpcional(String valor) throws NegocioException {
         return valor.isEmpty() ? "" : email(valor);
     }

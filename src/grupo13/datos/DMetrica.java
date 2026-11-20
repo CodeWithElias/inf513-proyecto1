@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de metrica_publicacion (mediciones acumuladas de una pauta publicada).
  * Fila de medición: id_metrica, fecha_medicion, alcance, impresiones, interacciones, clics, compartidos, id_programacion.
  * Fila "última medición por pauta": id_programacion, canal, tipo_canal, fecha_programacion, archivo, alcance, impresiones,
  *   interacciones, clics, compartidos, fecha_medicion (las métricas son NULL si la pauta aún no tiene mediciones).
@@ -27,7 +26,6 @@ public class DMetrica {
             + "   ORDER BY mp.fecha_medicion DESC, mp.id_metrica DESC LIMIT 1) lm ON TRUE"
             + " WHERE pp.estado = ?";
 
-    /** Historial de una pauta, la más reciente primero. */
     public List<String[]> listarPorPauta(int idProgramacion) throws SQLException {
         return Conexion.consultar(SELECT + " WHERE id_programacion = ? ORDER BY fecha_medicion DESC, id_metrica DESC",
                 idProgramacion);

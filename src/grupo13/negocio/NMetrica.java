@@ -39,7 +39,6 @@ public class NMetrica {
     private final DPlataforma plataforma = new DPlataforma();
     private final DYoutube youtube = new DYoutube();
 
-    /** Historial de mediciones de una pauta (la más reciente primero). */
     public List<String[]> listar(String idProgramacion) throws NegocioException {
         try {
             int id = Validar.id(idProgramacion, "id_programacion");
@@ -58,7 +57,6 @@ public class NMetrica {
         }
     }
 
-    /** Registro manual (cualquier canal). Devuelve el ID de la medición. */
     public int registrar(String idProgramacion, String alcance, String impresiones, String interacciones, String clics,
                          String compartidos) throws NegocioException {
         try {
@@ -71,7 +69,6 @@ public class NMetrica {
         }
     }
 
-    /** Corrige una medición registrada. */
     public void modificar(String idMetrica, String alcance, String impresiones, String interacciones, String clics,
                           String compartidos) throws NegocioException {
         try {
@@ -84,7 +81,6 @@ public class NMetrica {
         }
     }
 
-    /** Elimina una medición registrada por error. Devuelve el ID de su pauta. */
     public int eliminar(String idMetrica) throws NegocioException {
         try {
             int id = Validar.id(idMetrica, "id_metrica");
@@ -164,8 +160,6 @@ public class NMetrica {
         int idMetrica = datos.insertar(idProgramacion, alcance, vistas, interacciones, clics, compartidos);
         return new String[]{String.valueOf(idMetrica), s[0], s[1], s[2]};
     }
-
-    // ===== Reglas =====
 
     /** {alcance, impresiones, interacciones, clics, compartidos} validados y coherentes. */
     private static int[] validarValores(String alcance, String impresiones, String interacciones, String clics,

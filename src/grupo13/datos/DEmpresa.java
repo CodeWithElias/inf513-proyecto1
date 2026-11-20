@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de empresa_anunciante.
  * Fila: id_empresa, razon_social, nit, nombre_comercial, direccion_facturacion, email_facturacion, telefono,
  *       activo, fecha_registro, representantes.
  */
@@ -25,7 +24,6 @@ public class DEmpresa {
                 + " ORDER BY e.id_empresa", like, like, like);
     }
 
-    /** Devuelve la fila de la empresa o null si no existe. */
     public String[] obtener(int id) throws SQLException {
         return Conexion.consultarUno(SELECT + " WHERE e.id_empresa = ?", id);
     }
@@ -37,12 +35,10 @@ public class DEmpresa {
                 + " WHERE r.id_empresa = ? ORDER BY u.id_usuario", id);
     }
 
-    /** null = no existe, true/false = valor de activo. */
     public Boolean estaActivo(int id) throws SQLException {
         return Conexion.estaActivo("empresa_anunciante", "id_empresa", id);
     }
 
-    /** ¿Otra empresa (distinta de excluirId) ya usa este NIT? */
     public boolean nitEnUso(String nit, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM empresa_anunciante WHERE nit = ? AND id_empresa <> ?", nit, excluirId) > 0;
     }
@@ -64,7 +60,6 @@ public class DEmpresa {
                 Conexion.nulo(telefono), id);
     }
 
-    /** Baja / alta lógica. */
     public int cambiarEstado(int id, boolean activo) throws SQLException {
         return Conexion.ejecutar("UPDATE empresa_anunciante SET activo = ? WHERE id_empresa = ?", activo, id);
     }

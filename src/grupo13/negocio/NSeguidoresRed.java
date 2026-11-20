@@ -15,7 +15,6 @@ public class NSeguidoresRed {
     private final DSeguidoresRed datos = new DSeguidoresRed();
     private final DRedSocial redSocial = new DRedSocial();
 
-    /** Historial de mediciones de una red social (la más reciente primero). */
     public List<String[]> listar(String idCanal) throws NegocioException {
         try {
             int id = Validar.id(idCanal, "id_canal");
@@ -29,7 +28,6 @@ public class NSeguidoresRed {
         }
     }
 
-    /** Registra la medición de hoy; devuelve la fila registrada. La red debe estar activa. */
     public String[] insertar(String idCanal, String seguidores) throws NegocioException {
         try {
             int id = Validar.id(idCanal, "id_canal");

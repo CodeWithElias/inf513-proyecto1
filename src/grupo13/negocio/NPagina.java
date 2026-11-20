@@ -39,7 +39,6 @@ public class NPagina {
     private final DUsuario usuario = new DUsuario();
     private final DRepresentante representante = new DRepresentante();
 
-    /** Busca por URL, nombre, estado o plataforma. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             return datos.listar(filtro);

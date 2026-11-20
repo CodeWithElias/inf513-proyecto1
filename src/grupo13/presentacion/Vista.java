@@ -4,7 +4,6 @@ import grupo13.presentacion.comandos.Respuesta;
 
 import java.util.List;
 
-/** Respuestas típicas que arman las clases P* (listado, detalle, éxito). */
 final class Vista {
 
     private Vista() {
@@ -23,12 +22,10 @@ final class Vista {
         return Respuesta.exito(titulo, Html.pagina(titulo, Html.tabla(columnas, List.<String[]>of(fila))));
     }
 
-    /** "Éxito" con un mensaje y el registro afectado. */
     static Respuesta exito(String mensaje, String[] columnas, String[] fila) {
         return exito(mensaje, Html.tabla(columnas, List.<String[]>of(fila)));
     }
 
-    /** "Éxito" con un mensaje y HTML adicional ya armado. */
     static Respuesta exito(String mensaje, String htmlAdicional) {
         return Respuesta.exito("Éxito", Html.pagina("Éxito", Html.parrafo(mensaje) + htmlAdicional));
     }

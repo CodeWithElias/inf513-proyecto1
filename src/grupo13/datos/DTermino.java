@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de termino_monitoreo.
  * Fila: id_termino, termino, tipo, activo, detecciones.
  */
 public class DTermino {

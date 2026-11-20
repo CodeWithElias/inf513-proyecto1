@@ -4,6 +4,7 @@ import grupo13.negocio.Actor;
 import grupo13.negocio.NAutenticacion;
 import grupo13.negocio.NegocioException;
 import grupo13.negocio.Sesion;
+import grupo13.presentacion.Bitacora;
 import grupo13.presentacion.Html;
 import grupo13.presentacion.PAnalisis;
 import grupo13.presentacion.PCampania;
@@ -40,14 +41,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Registro de todos los comandos del sistema.
- * Capa de presentación: registra cada comando con su clase P* (que a su vez usa la capa de negocio).
- * Para agregar un caso de uso: crear D* (datos), N* (negocio) y P* (presentación), y registrar(...) aquí.
- */
+/** Registro de todos los comandos (cada uno con su método P*) y punto de entrada de cada correo. */
 public class Despachador {
 
-    /** Definición de un comando: parámetros esperados, ejemplo y acción. */
     private static class Definicion {
         final String grupo;
         final String nombre;
@@ -66,7 +62,6 @@ public class Despachador {
         }
     }
 
-    /** Minutos de validez de un código de confirmación. */
     private static final int MINUTOS_CONFIRMACION = 15;
 
     private final Map<String, Definicion> comandos = new LinkedHashMap<>();
@@ -525,23 +520,30 @@ public class Despachador {
     /**
      * RF02: identifica al remitente, verifica que su rol pueda usar el comando, pide confirmación en las operaciones
      * críticas y ejecuta. Nunca lanza excepción: siempre devuelve una respuesta.
+     * Cada correo queda en access.log y cada excepción capturada en error.log.
      */
     public Respuesta procesar(String remitente, String asunto) {
+        long inicio = System.currentTimeMillis();
         Actor actor;
         try {
             actor = autenticacion.identificar(remitente);
         } catch (NegocioException e) {
-            return error(asunto, Html.esc(e.getMessage()));
+            registrarError(e, remitente, asunto);
+            Respuesta r = error(asunto, Html.esc(e.getMessage()));
+            Bitacora.acceso(remitente, "-", asunto, "Error", e.getMessage(), System.currentTimeMillis() - inicio);
+            return r;
         }
         Sesion.iniciar(actor);
         try {
-            return ejecutar(actor, asunto, false);
+            Respuesta r = ejecutar(actor, asunto, false);
+            Bitacora.acceso(remitente, actor.getRol(), asunto, r.isExito() ? "Éxito" : "Error", r.getDetalle(),
+                    System.currentTimeMillis() - inicio);
+            return r;
         } finally {
             Sesion.cerrar();
         }
     }
 
-    /** Correo con el que se ejecuta el modo de prueba si no se indica otro (primer administrador activo). */
     public String remitentePorDefecto() throws NegocioException {
         return autenticacion.correoAdministrador();
     }
@@ -575,17 +577,22 @@ public class Despachador {
             }
             return def.accion.ejecutar(cmd.getParametros());
         } catch (ComandoException e) {
+            Bitacora.error("COMANDO", actor.getEmail(), asunto, e.getMessage(), null);
             return error(asunto, e.getMessage()); // mensaje propio de la presentación (puede traer HTML)
         } catch (NegocioException e) {
+            registrarError(e, actor.getEmail(), asunto);
             return error(asunto, Html.esc(e.getMessage())); // texto plano de la capa de negocio
         } catch (RuntimeException e) {
+            Bitacora.error("INESPERADO", actor.getEmail(), asunto, String.valueOf(e.getMessage()), e);
             return error(asunto, "Error inesperado: " + Html.esc(String.valueOf(e.getMessage())));
         }
     }
 
-    // ===== Confirmación de operaciones críticas =====
+    /** Regla de negocio incumplida, o fallo de la base de datos (trae la causa original y se guarda su traza). */
+    private static void registrarError(NegocioException e, String remitente, String asunto) {
+        Bitacora.error(e.getCause() != null ? "BASE DE DATOS" : "NEGOCIO", remitente, asunto, e.getMessage(), e.getCause());
+    }
 
-    /** Orden crítica en espera: quién la pidió, qué pidió y hasta cuándo vale el código. */
     private static final class Pendiente {
         final String email;
         final String asunto;
@@ -598,7 +605,6 @@ public class Despachador {
         }
     }
 
-    /** Guarda la orden y responde (al correo real del remitente) con el código para confirmarla. */
     private Respuesta pedirConfirmacion(Actor actor, String asunto) {
         pendientes.values().removeIf(p -> p.vence.isBefore(LocalDateTime.now()));
         String codigo;
@@ -636,10 +642,9 @@ public class Despachador {
                 "<p>No se pudo realizar la orden <code>" + Html.esc(asunto) + "</code>.</p>"
                         + "<p style='color:#b00020'>" + detalle + "</p>"
                         + "<p>Envíe <code>help</code> en el asunto para ver los comandos disponibles.</p>");
-        return Respuesta.error("Error", html);
+        return Respuesta.error("Error", html, detalle);
     }
 
-    /** Arma una tabla por cada grupo, solo con los comandos que el rol del remitente puede usar. */
     private Respuesta ayuda() {
         Actor actor = Sesion.actual();
         Map<String, List<String[]>> porGrupo = new LinkedHashMap<>();

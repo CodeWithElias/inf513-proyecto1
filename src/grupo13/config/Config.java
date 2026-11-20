@@ -8,7 +8,8 @@ import java.util.Properties;
 
 /**
  * Lee la configuración desde config.properties (en la carpeta desde donde se ejecuta).
- * Si el archivo no existe se usan los valores por defecto del Grupo 13.
+ * Las contraseñas (mail.password, db.password) solo están en ese archivo, que no se sube al repositorio
+ * (plantilla: config.properties.example). El resto tiene valores por defecto del Grupo 13.
  */
 public final class Config {
 
@@ -16,7 +17,6 @@ public final class Config {
 
     static {
         PROPS.setProperty("mail.usuario", "grupo13sa");
-        PROPS.setProperty("mail.password", "grup013grup013*");
         PROPS.setProperty("mail.direccion", "grupo13sa@tecnoweb.org.bo");
         PROPS.setProperty("pop3.host", "mail.tecnoweb.org.bo");
         PROPS.setProperty("pop3.puerto", "110");
@@ -26,8 +26,8 @@ public final class Config {
         PROPS.setProperty("db.puerto", "5432");
         PROPS.setProperty("db.nombre", "db_grupo13sa");
         PROPS.setProperty("db.usuario", "grupo13sa");
-        PROPS.setProperty("db.password", "grup013grup013*");
         PROPS.setProperty("app.intervalo", "10");
+        PROPS.setProperty("log.carpeta", "logs");
         PROPS.setProperty("scraping.intervalo.horas", "6");
         PROPS.setProperty("scraping.paginas", "3");
         PROPS.setProperty("alertas.rol", "Administrador");
@@ -36,7 +36,8 @@ public final class Config {
                 new FileInputStream("config.properties"), StandardCharsets.UTF_8)) {
             PROPS.load(in);
         } catch (IOException e) {
-            System.out.println("[Config] config.properties no encontrado, usando valores por defecto.");
+            System.out.println("[Config] config.properties no encontrado: copie config.properties.example y complete"
+                    + " las contraseñas.");
         }
     }
 
@@ -44,7 +45,12 @@ public final class Config {
     }
 
     public static String get(String clave) {
-        return PROPS.getProperty(clave).trim();
+        String valor = PROPS.getProperty(clave);
+        if (valor == null) {
+            throw new IllegalStateException("Falta '" + clave + "' en config.properties"
+                    + " (vea config.properties.example).");
+        }
+        return valor.trim();
     }
 
     public static int getInt(String clave) {

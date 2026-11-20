@@ -6,7 +6,7 @@ import grupo13.presentacion.comandos.Respuesta;
 
 import java.util.List;
 
-/** Presentación del CU7 – Métricas: insMet, modMet, eliMet, lisMet, capMet. */
+/** CU7 – Métricas. */
 public class PMetrica {
 
     public static final String[] PARAMS_VALORES = {"alcance", "impresiones", "interacciones", "clics", "compartidos"};
@@ -16,26 +16,22 @@ public class PMetrica {
 
     private final NMetrica negocio = new NMetrica();
 
-    /** lisMet["id_programacion"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         String titulo = "Mediciones de la pauta " + p.get(0);
         return Vista.listado(titulo, titulo, COLUMNAS, negocio.listar(p.get(0)));
     }
 
-    /** insMet["id_programacion","alcance","impresiones","interacciones","clics","compartidos"] */
     public Respuesta registrar(List<String> p) throws NegocioException {
         int id = negocio.registrar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5));
         return Vista.exito("Se registró la medición " + id + " de la pauta " + p.get(0) + ". Vea el análisis con anaPau[\""
                 + p.get(0) + "\"].", COLUMNAS, negocio.obtener(id));
     }
 
-    /** modMet["id_metrica","alcance","impresiones","interacciones","clics","compartidos"] */
     public Respuesta modificar(List<String> p) throws NegocioException {
         negocio.modificar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5));
         return Vista.exito("La medición " + p.get(0) + " fue corregida.", COLUMNAS, negocio.obtener(Integer.parseInt(p.get(0))));
     }
 
-    /** eliMet["id_metrica"] */
     public Respuesta eliminar(List<String> p) throws NegocioException {
         int idPauta = negocio.eliminar(p.get(0));
         return Vista.exito("La medición " + p.get(0) + " fue eliminada.",
@@ -65,6 +61,7 @@ public class PMetrica {
         try {
             return negocio.capturarTodas();
         } catch (NegocioException e) {
+            Bitacora.error("PROGRAMADO", "Captura de métricas no ejecutada: " + e.getMessage(), e.getCause());
             return List.of("Captura de métricas no ejecutada: " + e.getMessage());
         }
     }

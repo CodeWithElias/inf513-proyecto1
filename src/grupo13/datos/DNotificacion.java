@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de notificacion.
  * Fila: id_notificacion, fecha_envio, medio, titulo, mensaje, leida, id_programacion.
  */
 public class DNotificacion {

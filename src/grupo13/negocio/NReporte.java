@@ -39,9 +39,6 @@ public class NReporte {
     private final DReporte datos = new DReporte();
     private final DEmpresa empresa = new DEmpresa();
 
-    // =====================================================================================================
-    // Comercial
-
     /**
      * Tablas: "porEstado" {estado, cantidad, monto, porcentaje_del_monto};
      *         "porMes" {mes (AAAA-MM), emitidas, aprobadas, ingresos};
@@ -115,9 +112,6 @@ public class NReporte {
                 .tabla("porEstado", estados).tabla("porMes", meses).tabla("topClientes", top);
     }
 
-    // =====================================================================================================
-    // Servicios y paquetes vendidos
-
     /** Tablas: "servicios" y "paquetes" {nombre, cantidad, monto, porcentaje_del_total} ordenadas por monto. */
     public Reporte servicios(String desde, String hasta) throws NegocioException {
         try {
@@ -144,9 +138,6 @@ public class NReporte {
             throw NegocioException.bd(e);
         }
     }
-
-    // =====================================================================================================
-    // Ocupación de la pauta
 
     /** Tabla "porCanal": {canal, tipo, espacios, ocupados, disponibles, bloqueados, ocupacion_%, programadas, publicadas}. */
     public Reporte ocupacion(String desde, String hasta) throws NegocioException {
@@ -196,9 +187,6 @@ public class NReporte {
             throw NegocioException.bd(e);
         }
     }
-
-    // =====================================================================================================
-    // Material publicitario
 
     /**
      * Tablas: "porEstado" {estado, cantidad}; "porTipo" {tipo, cargados, aprobados, rechazados, en_correccion, pendientes};
@@ -255,9 +243,6 @@ public class NReporte {
         }
     }
 
-    // =====================================================================================================
-    // Impacto y alcance
-
     /**
      * Tablas: "porCanal" y "porCampania" {nombre, pautas, alcance, impresiones, interacciones, clics, tasa_interaccion_%};
      *         "topPautas" {id_programacion, campania, canal, archivo, impresiones, interacciones, tasa_interaccion_%} (5 mejores).
@@ -302,9 +287,6 @@ public class NReporte {
         return reporte(p, ind).tabla("porCanal", sumas(porCanal)).tabla("porCampania", sumas(porCampania)).tabla("topPautas", top);
     }
 
-    // =====================================================================================================
-    // Redes sociales
-
     /** Tabla "redes": {red, plataforma, seguidores_inicio, seguidores_fin, crecimiento, crecimiento_%, mediciones}. */
     public Reporte redes(String desde, String hasta) throws NegocioException {
         try {
@@ -347,9 +329,6 @@ public class NReporte {
             throw NegocioException.bd(e);
         }
     }
-
-    // =====================================================================================================
-    // Monitoreo de páginas no autorizadas (CU6)
 
     /**
      * Tablas: "porPlataforma" {plataforma, detecciones, paginas_nuevas}; "porTermino" {termino, detecciones};
@@ -397,9 +376,6 @@ public class NReporte {
             throw NegocioException.bd(e);
         }
     }
-
-    // =====================================================================================================
-    // Vista del cliente
 
     /**
      * Cabecera en el indicador "Empresa". Tabla "campanias":
@@ -457,9 +433,6 @@ public class NReporte {
         }
     }
 
-    // =====================================================================================================
-    // Tablero general
-
     /** Tablas: "porMes" (como en comercial) y "pautasPorCanal" {canal, publicadas, impresiones, interacciones}. */
     public Reporte tablero(String desde, String hasta) throws NegocioException {
         try {
@@ -491,9 +464,6 @@ public class NReporte {
             throw NegocioException.bd(e);
         }
     }
-
-    // =====================================================================================================
-    // Reglas y utilidades
 
     /** Regla de negocio: una proforma pendiente cuya validez ya pasó cuenta como vencida. */
     private static String estadoEfectivo(String estado, String fechaValidez) {

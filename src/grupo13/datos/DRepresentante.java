@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Capa de datos de la tabla representante (cliente).
  * representante ES UN usuario: su PK id_usuario es también FK a usuario.
  * Fila: id_usuario, nombre_completo, email, telefono, ci, cargo, razon_social, nit, activo.
  */
@@ -37,7 +36,6 @@ public class DRepresentante {
         return v == null ? null : Integer.parseInt(v);
     }
 
-    /** ¿Otro representante (distinto de excluirId) ya usa este CI? */
     public boolean ciEnUso(String ci, int excluirId) throws SQLException {
         return Conexion.contar("SELECT count(*) FROM representante WHERE lower(ci) = lower(?) AND id_usuario <> ?",
                 ci, excluirId) > 0;

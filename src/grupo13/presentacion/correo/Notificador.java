@@ -1,6 +1,7 @@
 package grupo13.presentacion.correo;
 
 import grupo13.config.Config;
+import grupo13.presentacion.Bitacora;
 import grupo13.presentacion.Html;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ public final class Notificador {
                 resultado.add(destino + ": correo enviado");
             } catch (IOException e) {
                 resultado.add(destino + ": registrado en el sistema, pero el correo falló (" + e.getMessage() + ")");
+                Bitacora.error("SMTP", a[0], a[2], "No se pudo enviar el aviso: " + e.getMessage(), e);
             }
         }
         return resultado;

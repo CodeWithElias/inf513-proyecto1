@@ -175,8 +175,6 @@ public class NAnalisis {
         }
     }
 
-    // ===== Reglas de cálculo =====
-
     /** Tasa de interacción, CTR, frecuencia y viralidad. v = {alcance, impresiones, interacciones, clics, compartidos}. */
     private static List<String[]> indicadoresBasicos(long[] v) {
         long base = v[0] > 0 ? v[0] : v[1];

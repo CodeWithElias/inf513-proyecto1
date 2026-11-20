@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Cliente POP3 implementado con sockets (RFC 1939). */
 public class ClientePOP3 implements AutoCloseable {
 
     private final Socket socket;
@@ -31,13 +30,11 @@ public class ClientePOP3 implements AutoCloseable {
         comando("PASS " + password);
     }
 
-    /** Devuelve la cantidad de mensajes en el buzón. */
     public int cantidadMensajes() throws IOException {
         String r = comando("STAT"); // +OK <cantidad> <tamaño>
         return Integer.parseInt(r.split("\\s+")[1]);
     }
 
-    /** Descarga el mensaje n y devuelve solo remitente y asunto. */
     public Correo obtener(int n) throws IOException {
         comando("RETR " + n);
         List<String> lineas = leerMultilinea();

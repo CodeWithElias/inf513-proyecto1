@@ -9,7 +9,7 @@ import grupo13.presentacion.correo.Notificador;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Presentación del CU6 – Ejecución del scraping: ejeScr, lisEje y la ejecución periódica que dispara App. */
+/** CU6 – Ejecución del scraping. */
 public class PScraping {
 
     private static final String[] COLUMNAS = {"ID", "Plataforma", "Inicio", "Fin", "Estado", "Errores",
@@ -39,7 +39,6 @@ public class PScraping {
         return Vista.exito("Scraping de " + r.getPlataforma() + " finalizado (" + r.getEstado() + ").", html);
     }
 
-    /** lisEje["id_plataforma" o "*"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         return Vista.listado("Ejecuciones de scraping", "Historial de ejecuciones de scraping", COLUMNAS,
                 negocio.listarEjecuciones(Vista.filtro(p.get(0))));
@@ -63,6 +62,7 @@ public class PScraping {
             }
         } catch (NegocioException e) {
             log.add("Scraping no ejecutado: " + e.getMessage());
+            Bitacora.error("PROGRAMADO", "Scraping no ejecutado: " + e.getMessage(), e.getCause());
         }
         return log;
     }

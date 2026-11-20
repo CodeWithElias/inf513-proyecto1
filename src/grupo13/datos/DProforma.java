@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.function.IntFunction;
 
 /**
- * Capa de datos de proforma y detalle_proforma.
  * Los totales y el número de proforma los calcula la capa de negocio; aquí solo se guardan (en transacción).
  * Fila: id_proforma, nro_proforma, fecha_emision, fecha_validez, razon_social_empresa, nombre_visitante,
  *       subtotal, descuento, total, estado, items, id_empresa, id_visitante.
@@ -100,7 +99,6 @@ public class DProforma {
         });
     }
 
-    /** Elimina el ítem y guarda los nuevos totales de la proforma. */
     public int quitarDetalle(int idDetalle, int idProforma, BigDecimal subtotal, BigDecimal total) throws SQLException {
         return Conexion.enTransaccion(c -> {
             int n = Conexion.ejecutar(c, "DELETE FROM detalle_proforma WHERE id_detalle = ?", idDetalle);

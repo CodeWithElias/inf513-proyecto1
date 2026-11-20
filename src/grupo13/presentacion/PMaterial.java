@@ -6,7 +6,7 @@ import grupo13.presentacion.comandos.Respuesta;
 
 import java.util.List;
 
-/** Presentación del CU4 – Material publicitario: lisMat, mosMat, insMat, modMat, subMat, eliMat, aprMat, recMat, corMat, lisRev. */
+/** CU4 – Material publicitario. */
 public class PMaterial {
 
     public static final String[] PARAMS_INSERTAR =
@@ -23,69 +23,58 @@ public class PMaterial {
 
     private final NMaterial negocio = new NMaterial();
 
-    /** lisMat["*"] */
     public Respuesta listar(List<String> p) throws NegocioException {
         return Vista.listado("Listando el Material", "Material Publicitario", COLUMNAS, negocio.listar(Vista.filtro(p.get(0))));
     }
 
-    /** mosMat["id"]: ficha del material, texto de la publicación e historial de revisiones. */
     public Respuesta mostrar(List<String> p) throws NegocioException {
         return Respuesta.exito("Material " + p.get(0), Html.pagina("Material " + p.get(0), ficha(p.get(0), true)));
     }
 
-    /** insMat["id_campania","tipo","nombre_archivo","url_archivo","duracion_seg","texto_publicacion"] (carga el remitente) */
     public Respuesta insertar(List<String> p) throws NegocioException {
         int id = negocio.insertar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5));
         return Vista.exito("El material fue cargado con ID " + id + " y quedó pendiente de revisión por Canal 11.",
                 ficha(String.valueOf(id), false));
     }
 
-    /** modMat["id","tipo","nombre_archivo","url_archivo","duracion_seg","texto_publicacion"] */
     public Respuesta modificar(List<String> p) throws NegocioException {
         negocio.modificar(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4), p.get(5));
         return Vista.exito("El material " + p.get(0) + " fue modificado.", ficha(p.get(0), false));
     }
 
-    /** subMat["id","nombre_archivo","url_archivo","duracion_seg","texto_publicacion"] */
     public Respuesta subirVersion(List<String> p) throws NegocioException {
         int version = negocio.subirVersion(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4));
         return Vista.exito("Se cargó la versión " + version + " del material " + p.get(0)
                 + "; quedó nuevamente pendiente de revisión.", ficha(p.get(0), true));
     }
 
-    /** eliMat["id"] */
     public Respuesta eliminar(List<String> p) throws NegocioException {
         negocio.eliminar(p.get(0));
         return Vista.exito("El material " + p.get(0) + " fue retirado.", ficha(p.get(0), false));
     }
 
-    /** aprMat["id","observaciones"] (revisa el remitente) */
     public Respuesta aprobar(List<String> p) throws NegocioException {
         negocio.aprobar(p.get(0), p.get(1));
         return Vista.exito("El material " + p.get(0) + " fue aprobado. Ya puede programarse en la pauta (CU5).",
                 ficha(p.get(0), true));
     }
 
-    /** recMat["id","observaciones"] (revisa el remitente) */
     public Respuesta rechazar(List<String> p) throws NegocioException {
         negocio.rechazar(p.get(0), p.get(1));
         return Vista.exito("El material " + p.get(0) + " fue rechazado.", ficha(p.get(0), true));
     }
 
-    /** corMat["id","observaciones"] (revisa el remitente) */
     public Respuesta solicitarCorreccion(List<String> p) throws NegocioException {
         negocio.solicitarCorreccion(p.get(0), p.get(1));
         return Vista.exito("Se solicitaron correcciones para el material " + p.get(0) + ". El cliente debe subir una nueva"
                 + " versión con subMat[\"" + p.get(0) + "\",\"nombre_archivo\",\"url\",\"duracion\",\"texto\"].", ficha(p.get(0), true));
     }
 
-    /** lisRev["id_material"] */
     public Respuesta listarRevisiones(List<String> p) throws NegocioException {
         String titulo = "Revisiones del material " + p.get(0);
         return Vista.listado(titulo, titulo, COLUMNAS_REV, negocio.listarRevisiones(p.get(0)));
     }
 
-    /** Ficha del material; con 'conRevisiones' agrega el historial. */
     private String ficha(String id, boolean conRevisiones) throws NegocioException {
         String[] f = negocio.obtener(id);
         String html = Html.ficha(new String[][]{

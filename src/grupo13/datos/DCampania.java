@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Capa de datos de campania (proforma 1 - 0..1 campania).
  * Fila: id_campania, nombre, fecha_inicio, fecha_fin, estado, nro_proforma, razon_social, total, id_empresa.
  */
 public class DCampania {

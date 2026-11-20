@@ -18,7 +18,6 @@ public class NRepresentante {
     private final DUsuario usuario = new DUsuario();
     private final DEmpresa empresa = new DEmpresa();
 
-    /** Busca por nombre, email, CI, razón social o NIT. */
     public List<String[]> listar(String filtro) throws NegocioException {
         try {
             return datos.listar(filtro);
