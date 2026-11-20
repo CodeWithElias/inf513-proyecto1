@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Servidor de correo (App)",
+            "request": "launch",
+            "mainClass": "grupo13.App",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "java",
+            "name": "Probar comando (--probar)",
+            "request": "launch",
+            "mainClass": "grupo13.App",
+            "cwd": "${workspaceFolder}",
+            "args": ["--probar", "${input:comando}"],
+            "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "comando",
+            "type": "promptString",
+            "description": "Comando a probar (ej. lisUsu[\"*\"])",
+            "default": "help"
+        }
+    ]
+}

@@ -1,36 +1,105 @@
 package grupo13.negocio;
 
-import grupo13.comandos.ComandoException;
-import grupo13.comandos.Respuesta;
 import grupo13.datos.DRol;
-import grupo13.util.Html;
 
 import java.sql.SQLException;
 import java.util.List;
 
-/** Consulta y registro de roles (necesarios para asignar a los usuarios). */
+/**
+ * CU1 / RF02: gestión de roles.
+ * Fila de rol: id_rol, nombre, descripcion, activo, usuarios_activos.
+ */
 public class NRol {
-
-    private static final String[] TITULOS = {"ID", "Nombre", "Descripción", "Activo"};
 
     private final DRol datos = new DRol();
 
-    /** lisRol["*"] */
-    public Respuesta listar(List<String> p) throws SQLException {
-        String filtro = p.get(0).equals("*") ? null : p.get(0);
-        return Respuesta.exito("Listando los Roles",
-                Html.pagina("Listando los Roles", Html.tabla(TITULOS, datos.listar(filtro))));
+    public List<String[]> listar(String filtro) throws NegocioException {
+        try {
+            return datos.listar(filtro);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
     }
 
-    /** insRol["nombre","descripcion"] */
-    public Respuesta insertar(List<String> p) throws Exception {
-        String nombre = Validar.texto(p.get(0), "nombre", 100);
-        String descripcion = Validar.textoOpcional(p.get(1), "descripcion", 255);
-        if (datos.existeNombre(nombre)) {
-            throw new ComandoException("Ya existe un rol llamado " + Html.esc(nombre) + ".");
+    public String[] obtener(String idRol) throws NegocioException {
+        try {
+            return buscar(Validar.id(idRol, "id_rol"));
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
         }
-        int id = datos.insertar(nombre, descripcion);
-        return Respuesta.exito("Éxito", Html.pagina("Éxito",
-                "<p>El rol <b>" + Html.esc(nombre) + "</b> fue registrado con ID " + id + ".</p>"));
+    }
+
+    public int insertar(String nombre, String descripcion) throws NegocioException {
+        try {
+            String n = Validar.texto(nombre, "nombre", 100);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 255);
+            if (datos.existeNombre(n, 0)) {
+                throw new NegocioException("Ya existe un rol llamado " + n + ".");
+            }
+            return datos.insertar(n, d);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    public void modificar(String idRol, String nombre, String descripcion) throws NegocioException {
+        try {
+            int id = Validar.id(idRol, "id_rol");
+            String n = Validar.texto(nombre, "nombre", 100);
+            String d = Validar.textoOpcional(descripcion, "descripcion", 255);
+            buscar(id);
+            if (datos.existeNombre(n, id)) {
+                throw new NegocioException("Ya existe otro rol llamado " + n + ".");
+            }
+            datos.modificar(id, n, d);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    /** Baja lógica; no se permite si hay usuarios activos con ese rol. */
+    public void eliminar(String idRol) throws NegocioException {
+        try {
+            int id = Validar.id(idRol, "id_rol");
+            if (!estado(id)) {
+                throw new NegocioException("El rol " + id + " ya está dado de baja.");
+            }
+            int usuarios = datos.contarUsuariosActivos(id);
+            if (usuarios > 0) {
+                throw new NegocioException("No se puede dar de baja el rol " + id + ": tiene " + usuarios
+                        + " usuario(s) activo(s). Reasígnelos o déles de baja primero.");
+            }
+            datos.cambiarEstado(id, false);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    public void activar(String idRol) throws NegocioException {
+        try {
+            int id = Validar.id(idRol, "id_rol");
+            if (estado(id)) {
+                throw new NegocioException("El rol " + id + " ya está activo.");
+            }
+            datos.cambiarEstado(id, true);
+        } catch (SQLException e) {
+            throw NegocioException.bd(e);
+        }
+    }
+
+    private String[] buscar(int id) throws SQLException, NegocioException {
+        String[] fila = datos.obtener(id);
+        if (fila == null) {
+            throw new NegocioException("No existe un rol con ID " + id + ".");
+        }
+        return fila;
+    }
+
+    private boolean estado(int id) throws SQLException, NegocioException {
+        Boolean activo = datos.estaActivo(id);
+        if (activo == null) {
+            throw new NegocioException("No existe un rol con ID " + id + ".");
+        }
+        return activo;
     }
 }

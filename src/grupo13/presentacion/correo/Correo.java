@@ -1,0 +1,25 @@
+package grupo13.presentacion.correo;
+
+public class Correo {
+
+    private final String remitente;
+    private final String asunto;
+
+    public Correo(String remitente, String asunto) {
+        this.remitente = remitente;
+        this.asunto = asunto;
+    }
+
+    public String getRemitente() {
+        return remitente;
+    }
+
+    public String getAsunto() {
+        return asunto;
+    }
+
+    @Override
+    public String toString() {
+        return "De: " + remitente + " | Asunto: " + asunto;
+    }
+}

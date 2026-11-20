@@ -1,0 +1,35 @@
+# ===== Configuración Grupo 13 SA - Tecnología Web =====
+
+# Cuenta de correo del grupo
+mail.usuario=grupo13sa
+mail.password=COMPLETE_LA_CONTRASENA
+mail.direccion=grupo13sa@tecnoweb.org.bo
+
+# POP3 (lectura de correos)
+pop3.host=mail.tecnoweb.org.bo
+pop3.puerto=110
+
+# SMTP (envío de respuestas)
+smtp.host=mail.tecnoweb.org.bo
+smtp.puerto=25
+
+# Base de datos PostgreSQL
+db.host=db.tecnoweb.org.bo
+db.puerto=5432
+db.nombre=db_grupo13sa
+db.usuario=grupo13sa
+db.password=COMPLETE_LA_CONTRASENA
+
+# Cada cuántos segundos se revisa el buzón
+app.intervalo=10
+
+# CU6 - Monitoreo de páginas no autorizadas (scraping)
+# Cada cuántas horas se ejecuta automáticamente (0 = solo manual con ejeScr)
+scraping.intervalo.horas=6
+# Páginas de resultados de YouTube que se leen por búsqueda (unos 20 resultados por página)
+scraping.paginas=3
+# Rol cuyos usuarios activos reciben las alertas de páginas no autorizadas
+alertas.rol=Administrador
+
+# Carpeta de la bitácora (access.log y error.log)
+log.carpeta=logs
